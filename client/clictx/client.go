@@ -20,7 +20,6 @@ func NewClient(rpcURL string, rpcClient rpcclient.Client) *Client {
 		WithNodeURI(rpcURL).
 		WithClient(rpcClient).
 		WithAccountRetriever(authtypes.AccountRetriever{}).
-		WithJSONMarshaler(codec.EncodingConfig.Marshaler).
 		WithLegacyAmino(codec.EncodingConfig.Amino).
 		WithTxConfig(codec.EncodingConfig.TxConfig).
 		WithInterfaceRegistry(codec.EncodingConfig.InterfaceRegistry)

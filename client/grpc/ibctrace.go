@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 
-	ibcchantypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
+	ibcchantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 )
 
 type OpenChannel struct {

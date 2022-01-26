@@ -2,8 +2,9 @@ package tx
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/b-harvest/modules-test-tool/client"
 	"github.com/spf13/cobra"
@@ -15,9 +16,9 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
-	clienttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/02-client/types"
-	channelutils "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/client/utils"
+	ibctypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	channelutils "github.com/cosmos/ibc-go/v2/modules/core/04-channel/client/utils"
 )
 
 // Transaction is an object that has common fields when signing transaction.
@@ -48,11 +49,11 @@ func IbcNewtransaction(client *client.Client, chainID string, gasLimit uint64, f
 
 // MsgCreatePool creates create pool message and returns MsgCreatePool transaction message.
 func MsgTransfer(cmd *cobra.Command, ctx sdkclient.Context, srcPort string, srcChannel string, coin sdktypes.Coin, sender string, receiver string) (sdktypes.Msg, error) {
-	prefix := strings.Split(sender, "1")
-	ibcsender, err := sdktypes.GetFromBech32(sender, prefix[0])
-	if err != nil {
-		return &ibctypes.MsgTransfer{}, err
-	}
+	//prefix := strings.Split(sender, "1")
+	//ibcsender, err := sdktypes.GetFromBech32(sender, prefix[0])
+	//if err != nil {
+	//	return &ibctypes.MsgTransfer{}, err
+	//}
 	timeoutHeightStr, err := cmd.Flags().GetString(flagPacketTimeoutHeight)
 	if err != nil {
 		return nil, err
@@ -86,10 +87,24 @@ func MsgTransfer(cmd *cobra.Command, ctx sdkclient.Context, srcPort string, srcC
 		}
 
 		if timeoutTimestamp != 0 {
-			timeoutTimestamp = consensusState.GetTimestamp() + timeoutTimestamp
+			// use local clock time as reference time if it is later than the
+			// consensus state timestamp of the counter party chain, otherwise
+			// still use consensus state timestamp as reference
+			now := time.Now().UnixNano()
+			consensusStateTimestamp := consensusState.GetTimestamp()
+			if now > 0 {
+				now := uint64(now)
+				if now > consensusStateTimestamp {
+					timeoutTimestamp = now + timeoutTimestamp
+				} else {
+					timeoutTimestamp = consensusStateTimestamp + timeoutTimestamp
+				}
+			} else {
+				println(errors.New("local clock time is not greater than Jan 1st, 1970 12:00 AM"))
+			}
 		}
 	}
-	msg := ibctypes.NewMsgTransfer(srcPort, srcChannel, coin, ibcsender, receiver, timeoutHeight, timeoutTimestamp)
+	msg := ibctypes.NewMsgTransfer(srcPort, srcChannel, coin, sender, receiver, timeoutHeight, timeoutTimestamp)
 	if err := msg.ValidateBasic(); err != nil {
 		return &ibctypes.MsgTransfer{}, err
 	}

@@ -11,7 +11,7 @@ import (
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 
-	liqtypes "github.com/tendermint/liquidity/x/liquidity/types"
+	liqtypes "github.com/gravity-devs/liquidity/x/liquidity/types"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -70,7 +70,7 @@ func CreatePoolsCmd() *cobra.Command {
 				depositCoinB sdktypes.Int
 			}{
 				{
-					liqtypes.DefaultPoolTypeId,
+					liqtypes.DefaultPoolTypeID,
 					denomPairs,
 					sdktypes.NewInt(1_000_000_000),
 					sdktypes.NewInt(1_000_000_000),

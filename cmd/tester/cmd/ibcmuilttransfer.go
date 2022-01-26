@@ -18,7 +18,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/applications/transfer/types"
+	ibctypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
 
 	"github.com/rs/zerolog/log"
 

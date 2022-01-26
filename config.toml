@@ -1,0 +1,42 @@
+[rpc]
+address = "http://localhost:26657"
+
+[grpc]
+address = "localhost:9009"
+
+[lcd]
+address = "http://localhost:1317"
+
+[custom]
+mnemonics = ["",]
+
+gas_limit = 200000
+fee_denom = "uatom"
+fee_amount = 0
+memo = ""
+
+[ibcconfig]
+    [[ibcconfig.chains]]
+    chainid = "persian-cat"
+    grpc = "http://127.0.0.1:9090"
+    rpc = "http://127.0.0.1:26657"
+    dstaccount = "crescent1g8nmlffsjsf0kf3lt392mykjj3yd2lr6wgulz4"
+    tokendenom  = "ucre"
+    accounthd ="44'/118'/0'/0/0"
+    accountaddrprefix="crescent"
+    [[ibcconfig.chains]]
+    chainid = "osmosis-testnet"
+    grpc = "http://127.0.0.1:9191"
+    rpc = "http://127.0.0.1:16657"
+    dstaccount = "osmo1awm5n307pp8szjewz8sz9rvcce9rxt7wtpeh8l"
+    tokendenom  = "uosmo"
+    accounthd ="44'/118'/0'/0/0"
+    accountaddrprefix="osmo"
+    [[ibcconfig.chains]]
+    chainid = "terra-testnet"
+    grpc = "http://127.0.0.1:9393"
+    rpc = "http://127.0.0.1::36657"
+    dstaccount = "terra16qtmqtcge7zurc3npf9csyym0zgmvt6vat6wzl"
+    tokendenom  = "uluna"
+    accounthd ="44'/330'/0'/0/0"
+    accountaddrprefix="terra"
