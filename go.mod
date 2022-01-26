@@ -11,7 +11,6 @@ require (
 	github.com/rs/zerolog v1.26.1
 	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.0
-	github.com/tendermint/liquidity v1.4.2
 	github.com/tendermint/tendermint v0.34.14
 	github.com/test-go/testify v1.1.4
 	google.golang.org/grpc v1.42.0

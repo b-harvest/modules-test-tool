@@ -5,7 +5,7 @@ import (
 
 	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 
-	liquiditytypes "github.com/tendermint/liquidity/x/liquidity/types"
+	liquiditytypes "github.com/gravity-devs/liquidity/x/liquidity/types"
 )
 
 // GetLiquidityQueryClient returns a object of queryClient
