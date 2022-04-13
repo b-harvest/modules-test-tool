@@ -2,7 +2,8 @@ package grpc
 
 import (
 	"context"
-
+	
+	"github.com/cosmos/cosmos-sdk/types/query"
 	ibcchantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
 )
 
