@@ -24,7 +24,11 @@ func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 
 	channelsres, err := client.Channels(
 		context.Background(),
-		&ibcchantypes.QueryChannelsRequest{},
+		&ibcchantypes.QueryChannelsRequest{
+				Pagination: &query.PageRequest{
+				Limit: 1000000,
+			},
+		},
 	)
 	if err != nil {
 		return nil, err
