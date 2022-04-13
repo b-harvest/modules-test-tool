@@ -27,7 +27,7 @@ func NewClient(grpcURL string, timeout int64) (*Client, error) {
 		panic(fmt.Sprintf("incorrect grpc endpoint: %s", urls))
 	}
 
-	if urls[0] == "https" {
+	if urls[0] == "https:" {
 		grpcopts = []grpc.DialOption{
 			grpc.WithTransportCredentials(credentials.NewTLS(nil)),
 		}
