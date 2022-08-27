@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cosmos/cosmos-sdk/types/query"
+	ibcclienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
 	ibcchantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
@@ -18,8 +19,12 @@ func (c *Client) GetIBCChannQueryClient() ibcchantypes.QueryClient {
 	return ibcchantypes.NewQueryClient(c)
 }
 
+func (c *Client) GetIBCClientQueryClient() ibcclienttypes.QueryClient {
+	return ibcclienttypes.NewQueryClient(c)
+}
 func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 	client := c.GetIBCChannQueryClient()
+	client_status := c.GetIBCClientQueryClient()
 
 	var OpenChannels []OpenChannel
 
@@ -38,7 +43,7 @@ func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 	for _, Channel := range Channels {
 		var OpenChannel OpenChannel
 		if Channel.State == 3 {
-			OpenChannel.ChannelId = Channel.ChannelId
+
 			clientstateres, err := client.ChannelClientState(
 				context.Background(),
 				&ibcchantypes.QueryChannelClientStateRequest{
@@ -49,13 +54,28 @@ func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			clientstate := clientstateres.GetIdentifiedClientState()
-			OpenChannel.ClientId = clientstate.ClientId
+			clientstatus, err := client_status.ClientStatus(
+				context.Background(),
+				&ibcclienttypes.QueryClientStatusRequest{
+					ClientId: clientstate.ClientId,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+			if clientstatus.Status == "Expired" {
+				continue
+			}
+
 			State := clientstate.GetClientState()
 			err = State.Unmarshal(State.Value)
 			if err != nil {
 				return nil, err
 			}
+			OpenChannel.ClientId = clientstate.ClientId
+			OpenChannel.ChannelId = Channel.ChannelId
 			OpenChannel.ClientChainId = State.TypeUrl
 
 			channelres, err := client.Channel(
