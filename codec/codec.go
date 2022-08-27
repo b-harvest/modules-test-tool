@@ -3,8 +3,8 @@ package codec
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 
-	liqapp "github.com/gravity-devs/liquidity/app"
-	liqappparams "github.com/gravity-devs/liquidity/app/params"
+	liqapp "github.com/cosmos/gaia/v7/app"
+	liqappparams "github.com/cosmos/gaia/v7/app/params"
 )
 
 // Codec is the application-wide Amino codec and is initialized upon package loading.

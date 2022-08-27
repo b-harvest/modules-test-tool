@@ -13,7 +13,7 @@ This program performs stress testing for the Cosmos module. Support: Liquidity ,
 **Note**: Requires [Go 1.17+](https://golang.org/dl/)
 ## Version
 
-- [Liquidity Module v1.2.4](https://github.com/Gravity-Devs/liquidity/tree/v1.4.2) 
+- [Liquidity Module v1.2.4](https://github.com/gravity-devs/liquidity/v2/tree/v1.4.2) 
 - [Cosmos SDK v0.44.5](https://github.com/cosmos/cosmos-sdk/tree/v0.44.5)
 - [Tendermint v0.34.14](https://github.com/tendermint/tendermint/tree/v0.34.14)
 

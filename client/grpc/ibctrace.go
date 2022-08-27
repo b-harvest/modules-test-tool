@@ -2,9 +2,9 @@ package grpc
 
 import (
 	"context"
-	
+
 	"github.com/cosmos/cosmos-sdk/types/query"
-	ibcchantypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	ibcchantypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
 )
 
 type OpenChannel struct {
@@ -26,8 +26,8 @@ func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 	channelsres, err := client.Channels(
 		context.Background(),
 		&ibcchantypes.QueryChannelsRequest{
-				Pagination: &query.PageRequest{
-				Limit: 1000000,
+			Pagination: &query.PageRequest{
+				Limit: 100000,
 			},
 		},
 	)
@@ -35,7 +35,6 @@ func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 		return nil, err
 	}
 	Channels := channelsres.GetChannels()
-
 	for _, Channel := range Channels {
 		var OpenChannel OpenChannel
 		if Channel.State == 3 {
@@ -43,7 +42,7 @@ func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 			clientstateres, err := client.ChannelClientState(
 				context.Background(),
 				&ibcchantypes.QueryChannelClientStateRequest{
-					PortId:    "transfer",
+					PortId:    Channel.PortId,
 					ChannelId: Channel.ChannelId,
 				},
 			)
@@ -62,7 +61,7 @@ func (c *Client) AllChainsTrace(ctx context.Context) ([]OpenChannel, error) {
 			channelres, err := client.Channel(
 				context.Background(),
 				&ibcchantypes.QueryChannelRequest{
-					PortId:    "transfer",
+					PortId:    Channel.PortId,
 					ChannelId: Channel.ChannelId,
 				},
 			)

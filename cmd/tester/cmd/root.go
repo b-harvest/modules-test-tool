@@ -29,14 +29,7 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&logLevel, "log-level", zerolog.DebugLevel.String(), "logging level;")
 	cmd.PersistentFlags().StringVar(&logFormat, "log-format", logLevelText, "logging format; must be either json or text;")
 
-	cmd.AddCommand(CreatePoolsCmd())
-	cmd.AddCommand(DepositCmd())
-	cmd.AddCommand(WithdrawCmd())
-	cmd.AddCommand(SwapCmd())
-	cmd.AddCommand(IBCtransferCmd())
-	cmd.AddCommand(StressTestCmd())
 	cmd.AddCommand(IBCtraceCmd())
-	cmd.AddCommand(IBCMuiltTransferCmd())
 	cmd.AddCommand(IBCBalances())
 	return cmd
 }
