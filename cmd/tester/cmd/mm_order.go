@@ -162,42 +162,42 @@ Example: $ tester mm-order 1 1.18 5 5 2
 				accNum := baseAccount.GetAccountNumber()
 				accSeq := baseAccount.GetSequence()
 
-				// First round: we gather all the signer infos. We use the "set empty
-				// signature" hack to do that.
-				sigV2 := signing.SignatureV2{
-					PubKey: priv.PubKey(),
-					Data: &signing.SingleSignatureData{
-						SignMode:  encCfg.TxConfig.SignModeHandler().DefaultMode(),
-						Signature: nil,
-					},
-					Sequence: accSeq,
-				}
-				err = txBuilder.SetSignatures(sigV2)
-				if err != nil {
-					return err
-				}
-
-				// Second round: all signer infos are set, so each signer can sign.
-				sigV2 = signing.SignatureV2{}
-				signerData := xauthsigning.SignerData{
-					ChainID:       "mooncat-2-external",
-					AccountNumber: accNum,
-					Sequence:      accSeq,
-				}
-				sigV2, err = tx.SignWithPrivKey(
-					encCfg.TxConfig.SignModeHandler().DefaultMode(), signerData,
-					txBuilder, priv, encCfg.TxConfig, accSeq)
-				if err != nil {
-					return err
-				}
-				err = txBuilder.SetSignatures(sigV2)
-				if err != nil {
-					return err
-				}
-
 				var txBytesArray [][]byte
 
 				for i := 0; i < txNum; i++ {
+					// First round: we gather all the signer infos. We use the "set empty
+					// signature" hack to do that.
+					sigV2 := signing.SignatureV2{
+						PubKey: priv.PubKey(),
+						Data: &signing.SingleSignatureData{
+							SignMode:  encCfg.TxConfig.SignModeHandler().DefaultMode(),
+							Signature: nil,
+						},
+						Sequence: accSeq,
+					}
+					err = txBuilder.SetSignatures(sigV2)
+					if err != nil {
+						return err
+					}
+
+					// Second round: all signer infos are set, so each signer can sign.
+					sigV2 = signing.SignatureV2{}
+					signerData := xauthsigning.SignerData{
+						ChainID:       "mooncat-2-external",
+						AccountNumber: accNum,
+						Sequence:      accSeq,
+					}
+					sigV2, err = tx.SignWithPrivKey(
+						encCfg.TxConfig.SignModeHandler().DefaultMode(), signerData,
+						txBuilder, priv, encCfg.TxConfig, accSeq)
+					if err != nil {
+						return err
+					}
+					err = txBuilder.SetSignatures(sigV2)
+					if err != nil {
+						return err
+					}
+
 					// Generated Protobuf-encoded bytes.
 					txBytes, err := encCfg.TxConfig.TxEncoder()(txBuilder.GetTx())
 					if err != nil {
@@ -228,6 +228,7 @@ Example: $ tester mm-order 1 1.18 5 5 2
 
 					log.Info().Msgf("%s/cosmos/tx/v1beta1/txs/%s", cfg.LCD.Address, grpcRes.TxResponse.TxHash)
 				}
+				time.Sleep(3 * time.Second)
 			}
 
 			return nil
