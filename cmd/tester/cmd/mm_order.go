@@ -28,15 +28,22 @@ func MMOrderCmd() *cobra.Command {
 		//Use:     "swap [pool-id] [offer-coin] [demand-coin-denom] [round] [tx-num] [msg-num]",
 		//mm-order [pair-id] [max-sell-price] [min-sell-price] [sell-amount] [max-buy-price] [min-buy-price] [buy-amount]
 
-		Use:     "mm-order [pair-id] [market-price] [amount] [round] [tx-num]",
+		Use:     "mm-order [pair-id] [max-sell-price] [min-sell-price] [sell-amount] [max-buy-price] [min-buy-price] [buy-amount] [round] [tx-num]",
 		Short:   "mm [pair-id] [market-price] [amount] [round] [tx-num]",
 		Aliases: []string{"mm"},
-		Args:    cobra.ExactArgs(6),
+		Args:    cobra.ExactArgs(9),
 		Long: `Make an MM(market making) order. An MM order is a group of multiple buy/sell limit orders which are distributed evenly based on its parameters.
 Example: $ tester mm-order 1 1.18 5 5 2
 
-round: how many rounds to run
-tx-num: how many transactions to be included in a block
+[pair-id]: pair id to make order
+[max-sell-price]: maximum price of sell orders
+[min-sell-price]]: minimum price of sell orders
+[sell-amount]: total amount of sell orders
+[max-buy-price]: maximum price of buy orders
+[min-buy-price]: minimum price of buy orders
+[buy-amount]: the total amount of buy orders
+[round]: how many rounds to run
+[tx-num]: how many transactions to be included in a block
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := SetLogger(logLevel)
@@ -54,32 +61,48 @@ tx-num: how many transactions to be included in a block
 				return fmt.Errorf("parse pair id: %w", err)
 			}
 
-			//marketPrice, err := types.NewDecFromStr(args[1])
-			_, err = types.NewDecFromStr(args[1])
+			maxSellPrice, err := types.NewDecFromStr(args[1])
 			if err != nil {
-				return fmt.Errorf("invalid market(base) price: %w", err)
+				return fmt.Errorf("invalid max sell price: %w", err)
 			}
 
-			amt, ok := types.NewIntFromString(args[2])
+			minSellPrice, err := types.NewDecFromStr(args[2])
+			if err != nil {
+				return fmt.Errorf("invalid min sell price: %w", err)
+			}
+
+			sellAmt, ok := types.NewIntFromString(args[3])
 			if !ok {
 				return fmt.Errorf("invalid sell amount: %s", args[3])
 			}
 
-			round, err := strconv.Atoi(args[3])
+			maxBuyPrice, err := types.NewDecFromStr(args[4])
+			if err != nil {
+				return fmt.Errorf("invalid max buy price: %w", err)
+			}
+
+			minBuyPrice, err := types.NewDecFromStr(args[5])
+			if err != nil {
+				return fmt.Errorf("invalid min buy price: %w", err)
+			}
+
+			buyAmt, ok := types.NewIntFromString(args[6])
+			if !ok {
+				return fmt.Errorf("invalid buy amount: %s", args[3])
+			}
+
+			round, err := strconv.Atoi(args[7])
 			if err != nil {
 				return fmt.Errorf("round must be integer: %s", args[3])
 			}
 
-			txNum, err := strconv.Atoi(args[4])
+			txNum, err := strconv.Atoi(args[8])
 			if err != nil {
 				return fmt.Errorf("tx-num must be integer: %s", args[4])
 			}
 
-			//fees := sdktypes.NewCoins(sdktypes.NewCoin(cfg.Custom.FeeDenom, sdktypes.NewInt(cfg.Custom.FeeAmount)))
-			//memo := cfg.Custom.Memo
-
-			//tx := tx.NewTransaction(client, chainID, gasLimit, fees, memo)
-			var addr string = "cre1zgwx3cwyyx8np35hlzngmkfdalnrjxj23uu4fj"
+			//var addr string = "cre1zgwx3cwyyx8np35hlzngmkfdalnrjxj23uu4fj"
+			var addr string = cfg.Custom.CrescentAddress
 			myMne := cfg.Custom.Mnemonics[0]
 			_, privKey, err := wallet.RecoverAccountFromMnemonic(myMne, "")
 			if err != nil {
@@ -88,19 +111,15 @@ tx-num: how many transactions to be included in a block
 			priv := cryptotypes.PrivKey(privKey)
 
 			// Create msg for MMOrder
-			tmpMaxSellPrice, _ := types.NewDecFromStr("0.0054100")
-			tmpMinSellPrice, _ := types.NewDecFromStr("0.0053801")
-			tmpMaxBuyPrice, _ := types.NewDecFromStr("0.0053800")
-			tmpMinBuyPrice, _ := types.NewDecFromStr("0.0053501")
 			msg := liquiditytypes.MsgMMOrder{
 				Orderer:       addr,
 				PairId:        pairId,
-				MaxSellPrice:  tmpMaxSellPrice,
-				MinSellPrice:  tmpMinSellPrice,
-				SellAmount:    types.NewInt(amt.Quo(types.NewInt(2)).Int64()),
-				MaxBuyPrice:   tmpMaxBuyPrice,
-				MinBuyPrice:   tmpMinBuyPrice,
-				BuyAmount:     types.NewInt(amt.Quo(types.NewInt(2)).Int64()),
+				MaxSellPrice:  maxSellPrice,
+				MinSellPrice:  minSellPrice,
+				SellAmount:    sellAmt,
+				MaxBuyPrice:   maxBuyPrice,
+				MinBuyPrice:   minBuyPrice,
+				BuyAmount:     buyAmt,
 				OrderLifespan: time.Hour, // 1시간
 			}
 

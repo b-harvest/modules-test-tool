@@ -2,16 +2,17 @@
 address = "http://localhost:26657"
 
 [grpc]
-address = "localhost:9009"
+address = "localhost:9090"
 
 [lcd]
 address = "http://localhost:1317"
 
 [custom]
-mnemonics = ["",]
+mnemonics = ["assist field six actual frown fury diet bulb address hello van swamp sustain dolphin ordinary short teach mammal digital garage legal labor ride pioneer",]
+crescent_address = "cre1zgwx3cwyyx8np35hlzngmkfdalnrjxj23uu4fj"
 
-gas_limit = 200000
-fee_denom = "uatom"
+gas_limit = 2000000
+fee_denom = "ucre"
 fee_amount = 0
 memo = ""
 
