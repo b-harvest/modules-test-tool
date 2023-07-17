@@ -28,7 +28,7 @@ func MarketOrderCmd() *cobra.Command {
 		Use:     "place-market-order [market-id] [is-buy] [quantity] [round] [tx-num]",
 		Short:   "mo [market-id] [is-buy] [quantity] [round] [tx-num]",
 		Aliases: []string{"mm"},
-		Args:    cobra.ExactArgs(4),
+		Args:    cobra.ExactArgs(5),
 		Long: `Example:
 		$ %s tx %s place-market-order 1 false 100000 --from mykey
 `,
