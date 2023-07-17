@@ -9,41 +9,28 @@ import (
 	"github.com/b-harvest/modules-test-tool/config"
 	"github.com/b-harvest/modules-test-tool/wallet"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/types"
 	txtype "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	liquiditytypes "github.com/crescent-network/crescent/v3/x/liquidity/types"
+	exchangetypes "github.com/crescent-network/crescent/v5/x/exchange/types"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/simapp"
-	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	xauthsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"google.golang.org/grpc"
 )
 
-func MMOrderCmd() *cobra.Command {
+func MarketOrderCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		//Use:     "swap [pool-id] [offer-coin] [demand-coin-denom] [round] [tx-num] [msg-num]",
-		//mm-order [pair-id] [max-sell-price] [min-sell-price] [sell-amount] [max-buy-price] [min-buy-price] [buy-amount]
-
-		Use:     "mm-order [pair-id] [max-sell-price] [min-sell-price] [sell-amount] [max-buy-price] [min-buy-price] [buy-amount] [round] [tx-num]",
-		Short:   "mm [pair-id] [market-price] [amount] [round] [tx-num]",
+		Use:     "place-market-order [market-id] [is-buy] [quantity] [round] [tx-num]",
+		Short:   "mo [market-id] [is-buy] [quantity] [round] [tx-num]",
 		Aliases: []string{"mm"},
 		Args:    cobra.ExactArgs(9),
-		Long: `Make an MM(market making) order. An MM order is a group of multiple buy/sell limit orders which are distributed evenly based on its parameters.
-Example: $ tester mm-order 1 1.18 5 5 2
-
-[pair-id]: pair id to make order
-[max-sell-price]: maximum price of sell orders
-[min-sell-price]]: minimum price of sell orders
-[sell-amount]: total amount of sell orders
-[max-buy-price]: maximum price of buy orders
-[min-buy-price]: minimum price of buy orders
-[buy-amount]: the total amount of buy orders
-[round]: how many rounds to run
-[tx-num]: how many transactions to be included in a block
+		Long: `Example:
+		$ %s tx %s place-market-order 1 false 100000 --from mykey
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := SetLogger(logLevel)
@@ -56,37 +43,17 @@ Example: $ tester mm-order 1 1.18 5 5 2
 				return err
 			}
 
-			pairId, err := strconv.ParseUint(args[0], 10, 64)
+			marketId, err := strconv.ParseUint(args[0], 10, 64)
 			if err != nil {
-				return fmt.Errorf("parse pair id: %w", err)
+				return fmt.Errorf("parse market id: %w", err)
 			}
 
-			maxSellPrice, err := types.NewDecFromStr(args[1])
+			isbuy, err := strconv.ParseBool(args[1])
 			if err != nil {
-				return fmt.Errorf("invalid max sell price: %w", err)
+				return fmt.Errorf("invalid isbuy: %w", err)
 			}
 
-			minSellPrice, err := types.NewDecFromStr(args[2])
-			if err != nil {
-				return fmt.Errorf("invalid min sell price: %w", err)
-			}
-
-			sellAmt, ok := types.NewIntFromString(args[3])
-			if !ok {
-				return fmt.Errorf("invalid sell amount: %s", args[3])
-			}
-
-			maxBuyPrice, err := types.NewDecFromStr(args[4])
-			if err != nil {
-				return fmt.Errorf("invalid max buy price: %w", err)
-			}
-
-			minBuyPrice, err := types.NewDecFromStr(args[5])
-			if err != nil {
-				return fmt.Errorf("invalid min buy price: %w", err)
-			}
-
-			buyAmt, ok := types.NewIntFromString(args[6])
+			quantity, ok := types.NewIntFromString(args[6])
 			if !ok {
 				return fmt.Errorf("invalid buy amount: %s", args[3])
 			}
@@ -111,16 +78,11 @@ Example: $ tester mm-order 1 1.18 5 5 2
 			priv := cryptotypes.PrivKey(privKey)
 
 			// Create msg for MMOrder
-			msg := liquiditytypes.MsgMMOrder{
-				Orderer:       addr,
-				PairId:        pairId,
-				MaxSellPrice:  maxSellPrice,
-				MinSellPrice:  minSellPrice,
-				SellAmount:    sellAmt,
-				MaxBuyPrice:   maxBuyPrice,
-				MinBuyPrice:   minBuyPrice,
-				BuyAmount:     buyAmt,
-				OrderLifespan: time.Hour, // 1시간
+			msg := exchangetypes.MsgPlaceMarketOrder{
+				Sender:   addr,
+				MarketId: marketId,
+				IsBuy:    isbuy,
+				Quantity: quantity,
 			}
 
 			// Create a connection to the gRPC server.
@@ -183,7 +145,7 @@ Example: $ tester mm-order 1 1.18 5 5 2
 					// Second round: all signer infos are set, so each signer can sign.
 					sigV2 = signing.SignatureV2{}
 					signerData := xauthsigning.SignerData{
-						ChainID:       "mooncat-2-external",
+						ChainID:       "mooncat-2-internal",
 						AccountNumber: accNum,
 						Sequence:      accSeq,
 					}
