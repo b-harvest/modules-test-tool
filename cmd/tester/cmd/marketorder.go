@@ -28,7 +28,7 @@ func MarketOrderCmd() *cobra.Command {
 		Use:     "place-market-order [market-id] [is-buy] [quantity] [round] [tx-num]",
 		Short:   "mo [market-id] [is-buy] [quantity] [round] [tx-num]",
 		Aliases: []string{"mm"},
-		Args:    cobra.ExactArgs(9),
+		Args:    cobra.ExactArgs(4),
 		Long: `Example:
 		$ %s tx %s place-market-order 1 false 100000 --from mykey
 `,
@@ -53,17 +53,17 @@ func MarketOrderCmd() *cobra.Command {
 				return fmt.Errorf("invalid isbuy: %w", err)
 			}
 
-			quantity, ok := types.NewIntFromString(args[6])
+			quantity, ok := types.NewIntFromString(args[2])
 			if !ok {
-				return fmt.Errorf("invalid buy amount: %s", args[3])
+				return fmt.Errorf("invalid buy amount: %s", args[2])
 			}
 
-			round, err := strconv.Atoi(args[7])
+			round, err := strconv.Atoi(args[3])
 			if err != nil {
 				return fmt.Errorf("round must be integer: %s", args[3])
 			}
 
-			txNum, err := strconv.Atoi(args[8])
+			txNum, err := strconv.Atoi(args[4])
 			if err != nil {
 				return fmt.Errorf("tx-num must be integer: %s", args[4])
 			}
