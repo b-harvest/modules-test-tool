@@ -27,22 +27,23 @@ type AccountDispenser struct {
 	accNum    uint64
 }
 
-func NewAccountDispenser(c *client.Client, mnemonics []string) *AccountDispenser {
+func NewAccountDispenser(c *client.Client, mnemonics []string, cre_addr string) *AccountDispenser {
 	return &AccountDispenser{
 		c:         c,
 		mnemonics: mnemonics,
+		addr:      cre_addr,
 	}
 }
 
 func (d *AccountDispenser) Next() error {
 	mnemonic := d.mnemonics[d.i]
-	addr, privKey, err := wallet.RecoverAccountFromMnemonic(mnemonic, "")
+	_, privKey, err := wallet.RecoverAccountFromMnemonic(mnemonic, "")
 	if err != nil {
 		return err
 	}
-	d.addr = addr
+
 	d.privKey = privKey
-	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), addr)
+	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), d.addr)
 	if err != nil {
 		return fmt.Errorf("get base account info: %w", err)
 	}
@@ -156,11 +157,11 @@ func StressTestCmd() *cobra.Command {
 			memo := cfg.Custom.Memo
 			tx := tx.NewTransaction(client, chainID, gasLimit, fees, memo)
 
-			d := NewAccountDispenser(client, cfg.Custom.Mnemonics)
+			d := NewAccountDispenser(client, cfg.Custom.Mnemonics, cfg.Custom.CrescentAddress)
 			if err := d.Next(); err != nil {
 				return fmt.Errorf("get next account: %w", err)
 			}
-			d.addr = cfg.Custom.CrescentAddress
+
 			blockTimes := make(map[int64]time.Time)
 
 			for no, scenario := range scenarios {
