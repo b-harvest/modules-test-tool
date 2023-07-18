@@ -160,7 +160,7 @@ func StressTestCmd() *cobra.Command {
 			if err := d.Next(); err != nil {
 				return fmt.Errorf("get next account: %w", err)
 			}
-
+			d.addr = cfg.Custom.CrescentAddress
 			blockTimes := make(map[int64]time.Time)
 
 			for no, scenario := range scenarios {

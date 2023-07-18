@@ -42,7 +42,7 @@ func NewClient(grpcURL string, timeout int64) (*Client, error) {
 			grpc.WithBlock(),
 		}
 		httpurl := strings.Split(grpcURL, "//")
-		conn, err = grpc.DialContext(context.Background(), httpurl[1], grpcopts...)
+		conn, err = grpc.DialContext(context.Background(), httpurl[0], grpcopts...)
 		if err != nil {
 			return &Client{}, fmt.Errorf("failed to connect GRPC client: %s", err)
 		}
