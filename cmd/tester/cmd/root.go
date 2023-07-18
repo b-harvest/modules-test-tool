@@ -30,6 +30,7 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&logFormat, "log-format", logLevelText, "logging format; must be either json or text;")
 
 	cmd.AddCommand(MarketOrderCmd())
+	cmd.AddCommand(StressTestCmd())
 	return cmd
 }
 
