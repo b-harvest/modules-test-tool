@@ -142,8 +142,8 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("invalid isbuy: %w", err)
 			}
 
-			quantity, ok := sdk.NewIntFromString(args[2])
-			if !ok {
+			quantity, err := sdk.NewDecFromStr(args[2])
+			if err != nil {
 				return fmt.Errorf("invalid buy amount: %s", args[2])
 			}
 

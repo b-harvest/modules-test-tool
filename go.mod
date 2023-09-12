@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/cosmos/cosmos-sdk v0.45.10
 	github.com/cosmos/go-bip39 v1.0.0
-	github.com/crescent-network/crescent/v5 v5.0.0-rc2.0.20230707074415-093807fa1c16
+	github.com/crescent-network/crescent/v5 v5.0.0-rc7
 	github.com/pelletier/go-toml v1.9.5
 	github.com/rs/zerolog v1.27.0
 	github.com/spf13/cobra v1.6.0

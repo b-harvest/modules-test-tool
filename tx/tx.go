@@ -85,7 +85,7 @@ func (t *Transaction) Sign(ctx context.Context, accSeq uint64, accNum uint64, pr
 }
 
 // CreateSwapBot creates a bot that makes multiple swaps which increases and decreases
-func (t *Transaction) MsgsMarketOrder(sender_address string, marketId uint64, isbuy bool, quantity sdktypes.Int, msgNum int) ([]sdktypes.Msg, error) {
+func (t *Transaction) MsgsMarketOrder(sender_address string, marketId uint64, isbuy bool, quantity sdktypes.Dec, msgNum int) ([]sdktypes.Msg, error) {
 	var msgs []sdktypes.Msg
 
 	// randomize order price

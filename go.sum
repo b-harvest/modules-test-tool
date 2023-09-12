@@ -179,8 +179,8 @@ github.com/creachadair/taskgroup v0.3.2/go.mod h1:wieWwecHVzsidg2CsUnFinW1faVN4+
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
 github.com/crescent-network/cosmos-sdk v1.1.5-sdk-0.45.10-mid-block-1 h1:fbiwxn7BkEtkPm8T51JwcDEvJZGGjwwQq1Jttv67o78=
 github.com/crescent-network/cosmos-sdk v1.1.5-sdk-0.45.10-mid-block-1/go.mod h1:/NeqCiHhneb/lBcuyRxGaVzC/6d0GoH51f2b6XZE+Fc=
-github.com/crescent-network/crescent/v5 v5.0.0-rc2.0.20230707074415-093807fa1c16 h1:cap7T215Cr90c4a80tDw43DB0SRifm8nx/j5tkoCq6U=
-github.com/crescent-network/crescent/v5 v5.0.0-rc2.0.20230707074415-093807fa1c16/go.mod h1:KMDz+Gq+N2/3yUJ1mUqQ2YA9DrvALOfc+rb5G+hdyiA=
+github.com/crescent-network/crescent/v5 v5.0.0-rc7 h1:QTMWNGa5/AqInFIA49t3+r5X0U4WQdVSjzP+/ZIb5bk=
+github.com/crescent-network/crescent/v5 v5.0.0-rc7/go.mod h1:KMDz+Gq+N2/3yUJ1mUqQ2YA9DrvALOfc+rb5G+hdyiA=
 github.com/crescent-network/ibc-go/v3 v3.4.0-crescent-v4-3 h1:eBQwupfSDLTDmjFuUefWFel//BCWMPEPouWWWoANLNI=
 github.com/crescent-network/ibc-go/v3 v3.4.0-crescent-v4-3/go.mod h1:tR2qrfrmeZqKiZh2tlTotpq3FDaXLD4omi3sBpaq21w=
 github.com/crescent-network/tendermint v0.34.22-mid-block-1 h1:u3u6hcEEZxoMQTviFrmNfmkmr2jStlhEuy2EeNJcIg4=

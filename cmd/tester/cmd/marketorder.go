@@ -53,11 +53,10 @@ func MarketOrderCmd() *cobra.Command {
 				return fmt.Errorf("invalid isbuy: %w", err)
 			}
 
-			quantity, ok := types.NewIntFromString(args[2])
-			if !ok {
-				return fmt.Errorf("invalid buy amount: %s", args[2])
+			quantity, err := types.NewDecFromStr(args[2])
+			if err != nil {
+				return fmt.Errorf("invalid quantity: %w", err)
 			}
-
 			round, err := strconv.Atoi(args[3])
 			if err != nil {
 				return fmt.Errorf("round must be integer: %s", args[3])
