@@ -2,47 +2,63 @@ package cmd
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
-	"strconv"
+	"math/big"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/cobra"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/evmos/ethermint/crypto/hd"
+	etherminttypes "github.com/evmos/ethermint/types"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
 
 	"github.com/b-harvest/modules-test-tool/client"
 	"github.com/b-harvest/modules-test-tool/config"
-	"github.com/b-harvest/modules-test-tool/tx"
-	"github.com/b-harvest/modules-test-tool/wallet"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/cobra"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
 type AccountDispenser struct {
-	c         *client.Client
-	mnemonics []string
-	i         int
-	addr      string
-	privKey   *secp256k1.PrivKey
-	accSeq    uint64
-	accNum    uint64
+	c            *client.Client
+	mnemonics    []string
+	i            int
+	addr         string
+	privKey      cryptotypes.PrivKey
+	ecdsaPrivKey *ecdsa.PrivateKey
+	accSeq       uint64
+	accNum       uint64
 }
 
-func NewAccountDispenser(c *client.Client, mnemonics []string, cre_addr string) *AccountDispenser {
+func NewAccountDispenser(c *client.Client, mnemonics []string, canto_addr string) *AccountDispenser {
 	return &AccountDispenser{
 		c:         c,
 		mnemonics: mnemonics,
-		addr:      cre_addr,
+		addr:      canto_addr,
 	}
 }
 
 func (d *AccountDispenser) Next() error {
 	mnemonic := d.mnemonics[d.i]
-	_, privKey, err := wallet.RecoverAccountFromMnemonic(mnemonic, "")
+	bz, err := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, etherminttypes.BIP44HDPath)
+	if err != nil {
+		return err
+	}
+	privKey := hd.EthSecp256k1.Generate()(bz)
+	ecdsaPrivKey, err := crypto.ToECDSA(privKey.Bytes())
 	if err != nil {
 		return err
 	}
 
 	d.privKey = privKey
+	d.ecdsaPrivKey = ecdsaPrivKey
 	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), d.addr)
 	if err != nil {
 		return fmt.Errorf("get base account info: %w", err)
@@ -60,7 +76,7 @@ func (d *AccountDispenser) Addr() string {
 	return d.addr
 }
 
-func (d *AccountDispenser) PrivKey() *secp256k1.PrivKey {
+func (d *AccountDispenser) PrivKey() cryptotypes.PrivKey {
 	return d.privKey
 }
 
@@ -85,16 +101,19 @@ func (d *AccountDispenser) DecAccSeq() {
 type Scenario struct {
 	Rounds         int
 	NumTxsPerBlock int
-	NumMsgsPerTx   int
 }
 
 var (
 	scenarios = []Scenario{
-		{2000, 20, 1},
-		{2000, 50, 1},
-		{2000, 200, 1},
-		{2000, 500, 1},
+		{1, 2},
+		{1, 5},
 	}
+	// scenarios = []Scenario{
+	// 	{2000, 20},
+	// 	{2000, 50},
+	// 	{2000, 200},
+	// 	{2000, 500},
+	// }
 	//scenarios = []Scenario{
 	//	{5, 10},
 	//	{5, 50},
@@ -108,9 +127,9 @@ var (
 
 func StressTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stress-test [market-id] [is-buy] [quantity]",
+		Use:   "stress-test [calldata] [contract-address]",
 		Short: "run stress test",
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
@@ -126,38 +145,40 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("read config: %w", err)
 			}
 
-			client, err := client.NewClient(cfg.RPC.Address, cfg.GRPC.Address)
+			client, err := client.NewClient(cfg.RPC.Address, cfg.ETHRPC.Address, cfg.GRPC.Address)
 			if err != nil {
 				return fmt.Errorf("new client: %w", err)
 			}
 			defer client.Stop() // nolint: errcheck
 
-			marketId, err := strconv.ParseUint(args[0], 10, 64)
+			// make calldata
+			//
+			// var NativeMetaData = &bind.MetaData{
+			// 	 ABI: "[{\"inputs\":[],\"name\":\"add\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"subtract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCounter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+			// }
+			//
+			// func main() {
+			// 	 abi, err := NativeMetaData.GetAbi()
+			// 	 if err != nil {
+			// 	 	panic(err)
+			// 	 }
+			// 	 payload, err := abi.Pack("add")
+			// 	 if err != nil {
+			// 	 	panic(err)
+			// 	 }
+			// 	 fmt.Println("Calldata in hex format:", hex.EncodeToString(payload))
+			// }
+			calldata, err := hexutil.Decode(args[0])
 			if err != nil {
-				return fmt.Errorf("parse market id: %w", err)
+				return fmt.Errorf("failed to decode ethereum tx hex bytes: %w", err)
 			}
 
-			isbuy, err := strconv.ParseBool(args[1])
-			if err != nil {
-				return fmt.Errorf("invalid isbuy: %w", err)
-			}
-
-			quantity, err := sdk.NewDecFromStr(args[2])
-			if err != nil {
-				return fmt.Errorf("invalid buy amount: %s", args[2])
-			}
-
-			chainID, err := client.RPC.GetNetworkChainID(ctx)
-			if err != nil {
-				return err
-			}
+			contractAddr := common.HexToAddress(args[1])
 
 			gasLimit := uint64(cfg.Custom.GasLimit)
-			fees := sdk.NewCoins(sdk.NewCoin(cfg.Custom.FeeDenom, sdk.NewInt(cfg.Custom.FeeAmount)))
-			memo := cfg.Custom.Memo
-			tx := tx.NewTransaction(client, chainID, gasLimit, fees, memo)
+			gasPrice := big.NewInt(cfg.Custom.GasPrice)
 
-			d := NewAccountDispenser(client, cfg.Custom.Mnemonics, cfg.Custom.CrescentAddress)
+			d := NewAccountDispenser(client, cfg.Custom.Mnemonics, cfg.Custom.CantoAddress)
 			if err := d.Next(); err != nil {
 				return fmt.Errorf("get next account: %w", err)
 			}
@@ -191,40 +212,45 @@ func StressTestCmd() *cobra.Command {
 
 					started := time.Now()
 					sent := 0
-				loop:
+					// loop:
 					for sent < scenario.NumTxsPerBlock {
-						msgs, err := tx.MsgsMarketOrder(d.Addr(), marketId, isbuy, quantity, scenario.NumMsgsPerTx)
-						if err != nil {
-							return fmt.Errorf("create msgs: %w", err)
-						}
-
 						for sent < scenario.NumTxsPerBlock {
 							accSeq := d.IncAccSeq()
-							txByte, err := tx.Sign(ctx, accSeq, d.AccNum(), d.PrivKey(), msgs...)
+							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, nil, gasLimit, gasPrice, calldata)
+							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
 							if err != nil {
-								return fmt.Errorf("sign tx: %w", err)
+								return err
 							}
-							resp, err := client.GRPC.BroadcastTx(ctx, txByte)
+
+							txBytes, err := rlp.EncodeToBytes(signedTx)
 							if err != nil {
-								return fmt.Errorf("broadcast tx: %w", err)
+								return err
 							}
-							if resp.TxResponse.Code != 0 {
-								if resp.TxResponse.Code == 0x14 {
-									log.Warn().Msg("mempool is full, stopping")
-									d.DecAccSeq()
-									break loop
-								}
-								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
-									if err := d.Next(); err != nil {
-										return fmt.Errorf("get next account: %w", err)
-									}
-									log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
-									time.Sleep(500 * time.Millisecond)
-									break
-								} else {
-									panic(fmt.Sprintf("%#v\n", resp.TxResponse))
-								}
+
+							var result string
+							err = client.ETHRPC.CallContext(context.Background(), &result, "eth_sendRawTransaction", "0x"+hex.EncodeToString(txBytes))
+							if err != nil {
+								return err
 							}
+							log.Info().Msgf("tx hash: %s", result)
+
+							// if resp.TxResponse.Code != 0 {
+							// 	if resp.TxResponse.Code == 0x14 {
+							// 		log.Warn().Msg("mempool is full, stopping")
+							// 		d.DecAccSeq()
+							// 		break loop
+							// 	}
+							// 	if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
+							// 		if err := d.Next(); err != nil {
+							// 			return fmt.Errorf("get next account: %w", err)
+							// 		}
+							// 		log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
+							// 		time.Sleep(500 * time.Millisecond)
+							// 		break
+							// 	} else {
+							// 		panic(fmt.Sprintf("%#v\n", resp.TxResponse))
+							// 	}
+							// }
 							sent++
 						}
 					}

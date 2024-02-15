@@ -4,6 +4,7 @@ import (
 	"context"
 
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	etherminttypes "github.com/evmos/ethermint/types"
 )
 
 // GetAuthQueryClient returns a object of queryClient
@@ -12,7 +13,7 @@ func (c *Client) GetAuthQueryClient() authtypes.QueryClient {
 }
 
 // GetBaseAccountInfo returns base account information
-func (c *Client) GetBaseAccountInfo(ctx context.Context, address string) (authtypes.BaseAccount, error) {
+func (c *Client) GetBaseAccountInfo(ctx context.Context, address string) (etherminttypes.EthAccount, error) {
 	client := c.GetAuthQueryClient()
 
 	req := authtypes.QueryAccountRequest{
@@ -21,13 +22,13 @@ func (c *Client) GetBaseAccountInfo(ctx context.Context, address string) (authty
 
 	resp, err := client.Account(ctx, &req)
 	if err != nil {
-		return authtypes.BaseAccount{}, err
+		return etherminttypes.EthAccount{}, err
 	}
 
-	var acc authtypes.BaseAccount
+	var acc etherminttypes.EthAccount
 	err = acc.Unmarshal(resp.GetAccount().Value)
 	if err != nil {
-		return authtypes.BaseAccount{}, err
+		return etherminttypes.EthAccount{}, err
 	}
 
 	return acc, nil

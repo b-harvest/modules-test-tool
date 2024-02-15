@@ -2,21 +2,21 @@ package codec
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
-
-	liqapp "github.com/crescent-network/crescent/v5/app"
-	liqappparams "github.com/crescent-network/crescent/v5/app/params"
+	"github.com/cosmos/cosmos-sdk/simapp/params"
+	"github.com/evmos/ethermint/app"
+	"github.com/evmos/ethermint/encoding"
 )
 
 // Codec is the application-wide Amino codec and is initialized upon package loading.
 var (
 	AppCodec       codec.Codec
 	AminoCodec     *codec.LegacyAmino
-	EncodingConfig liqappparams.EncodingConfig
+	EncodingConfig params.EncodingConfig
 )
 
 // SetCodec sets encoding config.
 func SetCodec() {
-	EncodingConfig = liqapp.MakeEncodingConfig()
+	EncodingConfig = encoding.MakeConfig(app.ModuleBasics)
 	AppCodec = EncodingConfig.Marshaler
 	AminoCodec = EncodingConfig.Amino
 }
