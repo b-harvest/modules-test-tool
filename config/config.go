@@ -16,7 +16,6 @@ var (
 // Config defines all necessary configuration parameters.
 type Config struct {
 	RPC       *RPCConfig    `toml:"rpc"`
-	ETHRPC    *ETHRPCConfig `toml:"ethrpc"`
 	GRPC      *GRPCConfig   `toml:"grpc"`
 	LCD       *LCDConfig    `toml:"lcd"`
 	Custom    *CustomConfig `toml:"custom"`
@@ -25,11 +24,6 @@ type Config struct {
 
 // RPCConfig contains the configuration of the RPC endpoint.
 type RPCConfig struct {
-	Address string `toml:"address"`
-}
-
-// ETHRPCConfig contains the configuration of the eth RPC endpoint.
-type ETHRPCConfig struct {
 	Address string `toml:"address"`
 }
 
@@ -48,7 +42,6 @@ type CustomConfig struct {
 	Mnemonics    []string `toml:"mnemonics"`
 	GasLimit     int64    `toml:"gas_limit"`
 	GasPrice     int64    `toml:"gas_price"`
-	FeeDenom     string   `toml:"fee_denom"`
 	CantoAddress string   `toml:"canto_address"`
 	ChainID      int64    `toml:"chain_id"`
 }

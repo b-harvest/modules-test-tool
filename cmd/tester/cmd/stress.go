@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"time"
@@ -18,8 +17,11 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/evmos/ethermint/app"
 	"github.com/evmos/ethermint/crypto/hd"
+	"github.com/evmos/ethermint/encoding"
 	etherminttypes "github.com/evmos/ethermint/types"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 
 	"github.com/b-harvest/modules-test-tool/client"
@@ -35,6 +37,7 @@ type AccountDispenser struct {
 	ecdsaPrivKey *ecdsa.PrivateKey
 	accSeq       uint64
 	accNum       uint64
+	evmDenom     string
 }
 
 func NewAccountDispenser(c *client.Client, mnemonics []string, canto_addr string) *AccountDispenser {
@@ -69,6 +72,13 @@ func (d *AccountDispenser) Next() error {
 	if d.i >= len(d.mnemonics) {
 		d.i = 0
 	}
+
+	evmParams, err := d.c.GRPC.GetEvmParams(context.Background())
+	if err != nil {
+		return err
+	}
+	d.evmDenom = evmParams.EvmDenom
+
 	return nil
 }
 
@@ -105,15 +115,11 @@ type Scenario struct {
 
 var (
 	scenarios = []Scenario{
-		{1, 2},
-		{1, 5},
+		{2000, 20},
+		{2000, 50},
+		{2000, 200},
+		{2000, 500},
 	}
-	// scenarios = []Scenario{
-	// 	{2000, 20},
-	// 	{2000, 50},
-	// 	{2000, 200},
-	// 	{2000, 500},
-	// }
 	//scenarios = []Scenario{
 	//	{5, 10},
 	//	{5, 50},
@@ -135,6 +141,9 @@ func StressTestCmd() *cobra.Command {
 
 			ctx := context.Background()
 
+			encodingConfig := encoding.MakeConfig(app.ModuleBasics)
+			txConfig := encodingConfig.TxConfig
+
 			err := SetLogger(logLevel)
 			if err != nil {
 				return fmt.Errorf("set logger: %w", err)
@@ -145,7 +154,7 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("read config: %w", err)
 			}
 
-			client, err := client.NewClient(cfg.RPC.Address, cfg.ETHRPC.Address, cfg.GRPC.Address)
+			client, err := client.NewClient(cfg.RPC.Address, cfg.GRPC.Address)
 			if err != nil {
 				return fmt.Errorf("new client: %w", err)
 			}
@@ -212,7 +221,7 @@ func StressTestCmd() *cobra.Command {
 
 					started := time.Now()
 					sent := 0
-					// loop:
+				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
 							accSeq := d.IncAccSeq()
@@ -222,35 +231,52 @@ func StressTestCmd() *cobra.Command {
 								return err
 							}
 
-							txBytes, err := rlp.EncodeToBytes(signedTx)
+							ethTxBytes, err := rlp.EncodeToBytes(signedTx)
 							if err != nil {
 								return err
 							}
 
-							var result string
-							err = client.ETHRPC.CallContext(context.Background(), &result, "eth_sendRawTransaction", "0x"+hex.EncodeToString(txBytes))
+							msg := &evmtypes.MsgEthereumTx{}
+							if err := msg.UnmarshalBinary(ethTxBytes); err != nil {
+								return err
+							}
+
+							if err := msg.ValidateBasic(); err != nil {
+								return err
+							}
+
+							tx, err := msg.BuildTx(txConfig.NewTxBuilder(), d.evmDenom)
 							if err != nil {
 								return err
 							}
-							log.Info().Msgf("tx hash: %s", result)
 
-							// if resp.TxResponse.Code != 0 {
-							// 	if resp.TxResponse.Code == 0x14 {
-							// 		log.Warn().Msg("mempool is full, stopping")
-							// 		d.DecAccSeq()
-							// 		break loop
-							// 	}
-							// 	if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
-							// 		if err := d.Next(); err != nil {
-							// 			return fmt.Errorf("get next account: %w", err)
-							// 		}
-							// 		log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
-							// 		time.Sleep(500 * time.Millisecond)
-							// 		break
-							// 	} else {
-							// 		panic(fmt.Sprintf("%#v\n", resp.TxResponse))
-							// 	}
-							// }
+							txBytes, err := txConfig.TxEncoder()(tx)
+							if err != nil {
+								return fmt.Errorf("sign tx: %w", err)
+							}
+
+							resp, err := client.GRPC.BroadcastTx(ctx, txBytes)
+							if err != nil {
+								return fmt.Errorf("broadcast tx: %w", err)
+							}
+
+							if resp.TxResponse.Code != 0 {
+								if resp.TxResponse.Code == 0x14 {
+									log.Warn().Msg("mempool is full, stopping")
+									d.DecAccSeq()
+									break loop
+								}
+								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
+									if err := d.Next(); err != nil {
+										return fmt.Errorf("get next account: %w", err)
+									}
+									log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
+									time.Sleep(500 * time.Millisecond)
+									break
+								} else {
+									panic(fmt.Sprintf("%#v\n", resp.TxResponse))
+								}
+							}
 							sent++
 						}
 					}

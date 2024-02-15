@@ -2,7 +2,6 @@ package client
 
 import (
 	sdkclient "github.com/cosmos/cosmos-sdk/client"
-	ethrpc "github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/b-harvest/modules-test-tool/client/clictx"
 	"github.com/b-harvest/modules-test-tool/client/grpc"
@@ -18,18 +17,12 @@ var (
 type Client struct {
 	CliCtx *clictx.Client
 	RPC    *rpc.Client
-	ETHRPC *ethrpc.Client
 	GRPC   *grpc.Client
 }
 
 // NewClient creates a new Client with the given configuration.
-func NewClient(rpcURL string, ethrpcURL string, grpcURL string) (*Client, error) {
+func NewClient(rpcURL string, grpcURL string) (*Client, error) {
 	rpcClient, err := rpc.NewClient(rpcURL, DefaultRPCTimeout)
-	if err != nil {
-		return &Client{}, err
-	}
-
-	ethrpcClient, err := ethrpc.Dial(ethrpcURL)
 	if err != nil {
 		return &Client{}, err
 	}
@@ -44,7 +37,6 @@ func NewClient(rpcURL string, ethrpcURL string, grpcURL string) (*Client, error)
 	return &Client{
 		CliCtx: cliCtx,
 		RPC:    rpcClient,
-		ETHRPC: ethrpcClient,
 		GRPC:   grpcClient,
 	}, nil
 }
@@ -59,11 +51,6 @@ func (c *Client) GetRPCClient() *rpc.Client {
 	return c.RPC
 }
 
-// GetETHRPCClient returns RPC client.
-func (c *Client) GetETHRPCClient() *ethrpc.Client {
-	return c.ETHRPC
-}
-
 // GetGRPCClient returns GRPC client.
 func (c *Client) GetGRPCClient() *grpc.Client {
 	return c.GRPC
@@ -75,8 +62,6 @@ func (c Client) Stop() error {
 	if err != nil {
 		return err
 	}
-
-	c.ETHRPC.Close()
 
 	err = c.GRPC.Close()
 	if err != nil {

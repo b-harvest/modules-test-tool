@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -13,25 +12,31 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	txtype "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/evmos/ethermint/app"
 	"github.com/evmos/ethermint/crypto/hd"
+	"github.com/evmos/ethermint/encoding"
 	etherminttypes "github.com/evmos/ethermint/types"
+	evmtypes "github.com/evmos/ethermint/x/evm/types"
 
 	"github.com/b-harvest/modules-test-tool/config"
 )
 
-func NewRawTxCmd() *cobra.Command {
+func NewEvmTxCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "raw [calldata] [contract-address] [round] [tx-num]",
-		Short: "Build cosmos transaction from raw ethereum transaction",
+		Use:   "evmtx [calldata] [contract-address] [round] [tx-num]",
+		Short: "Broadcast evm tx",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			encodingConfig := encoding.MakeConfig(app.ModuleBasics)
+			txConfig := encodingConfig.TxConfig
+
 			err := SetLogger(logLevel)
 			if err != nil {
 				return err
@@ -96,21 +101,28 @@ func NewRawTxCmd() *cobra.Command {
 			)
 			defer grpcConn.Close()
 
+			// Broadcast the tx via gRPC. We create a new client for the Protobuf Tx service.
+			txClient := txtype.NewServiceClient(grpcConn)
+
 			// To find accounts' number & seq, Make authQuery connection
 			authClient := authtypes.NewQueryClient(grpcConn)
 			queryAccountReq := authtypes.QueryAccountRequest{
 				Address: addr,
 			}
 
-			gasLimit := uint64(cfg.Custom.GasLimit)
-			gasPrice := big.NewInt(cfg.Custom.GasPrice)
-
-			// Create a connection to the RPC server
-			client, err := rpc.Dial(cfg.ETHRPC.Address)
+			evmClient := evmtypes.NewQueryClient(grpcConn)
+			queryParamsReq := evmtypes.QueryParamsRequest{}
+			queryParamsResp, err := evmClient.Params(
+				context.Background(),
+				&queryParamsReq,
+			)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			evmDenom := queryParamsResp.Params.EvmDenom
+
+			gasLimit := uint64(cfg.Custom.GasLimit)
+			gasPrice := big.NewInt(cfg.Custom.GasPrice)
 
 			for i := 0; i < round; i += 1 {
 				// Check accNum, accSeq
@@ -146,13 +158,39 @@ func NewRawTxCmd() *cobra.Command {
 
 				log.Info().Msgf("round:%d; txNum:%d; accAddr:%s", i+1, txNum, addr)
 
-				for _, txBytes := range txBytesArray {
-					var result string
-					err = client.CallContext(context.Background(), &result, "eth_sendRawTransaction", "0x"+hex.EncodeToString(txBytes))
+				for _, txBytesItem := range txBytesArray {
+					msg := &evmtypes.MsgEthereumTx{}
+					if err := msg.UnmarshalBinary(txBytesItem); err != nil {
+						return err
+					}
+
+					if err := msg.ValidateBasic(); err != nil {
+						return err
+					}
+
+					tx, err := msg.BuildTx(txConfig.NewTxBuilder(), evmDenom)
 					if err != nil {
 						return err
 					}
-					log.Info().Msgf("tx hash: %s", result)
+
+					txBytes, err := txConfig.TxEncoder()(tx)
+					if err != nil {
+						return err
+					}
+
+					// We then call the BroadcastTx method on this client.
+					grpcRes, err := txClient.BroadcastTx(
+						context.Background(),
+						&txtype.BroadcastTxRequest{
+							Mode:    txtype.BroadcastMode_BROADCAST_MODE_SYNC,
+							TxBytes: txBytes, // Proto-binary of the signed transaction, see previous step.
+						},
+					)
+					if err != nil {
+						return err
+					}
+
+					log.Info().Msgf("%s/cosmos/tx/v1beta1/txs/%s", cfg.LCD.Address, grpcRes.TxResponse.TxHash)
 				}
 				time.Sleep(3 * time.Second)
 			}
