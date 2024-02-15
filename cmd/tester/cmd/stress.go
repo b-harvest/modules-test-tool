@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,12 +18,10 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/evmos/ethermint/app"
 	"github.com/evmos/ethermint/crypto/hd"
 	"github.com/evmos/ethermint/encoding"
 	etherminttypes "github.com/evmos/ethermint/types"
 	evmtypes "github.com/evmos/ethermint/x/evm/types"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 
 	"github.com/b-harvest/modules-test-tool/client"
 	"github.com/b-harvest/modules-test-tool/config"
@@ -141,7 +140,7 @@ func StressTestCmd() *cobra.Command {
 
 			ctx := context.Background()
 
-			encodingConfig := encoding.MakeConfig(app.ModuleBasics)
+			encodingConfig := encoding.MakeTestEncodingConfig()
 			txConfig := encodingConfig.TxConfig
 
 			err := SetLogger(logLevel)

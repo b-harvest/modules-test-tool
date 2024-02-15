@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
-	rpc "github.com/tendermint/tendermint/rpc/client/http"
-	tmctypes "github.com/tendermint/tendermint/rpc/core/types"
+	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	rpc "github.com/cometbft/cometbft/rpc/client/http"
+	tmctypes "github.com/cometbft/cometbft/rpc/core/types"
 )
 
 // Client wraps RPC client connection.

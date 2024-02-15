@@ -19,7 +19,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/evmos/ethermint/app"
 	"github.com/evmos/ethermint/crypto/hd"
 	"github.com/evmos/ethermint/encoding"
 	etherminttypes "github.com/evmos/ethermint/types"
@@ -34,7 +33,7 @@ func NewEvmTxCmd() *cobra.Command {
 		Short: "Broadcast evm tx",
 		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			encodingConfig := encoding.MakeConfig(app.ModuleBasics)
+			encodingConfig := encoding.MakeTestEncodingConfig()
 			txConfig := encodingConfig.TxConfig
 
 			err := SetLogger(logLevel)
