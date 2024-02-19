@@ -135,7 +135,7 @@ func StressTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stress-test [calldata] [contract-address] [amount]",
 		Short: "run stress test",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 

@@ -32,7 +32,7 @@ func NewEvmTxCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "evmtx [calldata] [contract-address] [amount] [round] [tx-num]",
 		Short: "Broadcast evm tx",
-		Args:  cobra.ExactArgs(4),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			encodingConfig := encoding.MakeConfig(app.ModuleBasics)
 			txConfig := encodingConfig.TxConfig
