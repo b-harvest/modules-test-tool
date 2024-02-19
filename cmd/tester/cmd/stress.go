@@ -133,7 +133,7 @@ var (
 
 func StressTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stress-test [calldata] [contract-address]",
+		Use:   "stress-test [calldata] [contract-address] [amount]",
 		Short: "run stress test",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -184,6 +184,11 @@ func StressTestCmd() *cobra.Command {
 
 			contractAddr := common.HexToAddress(args[1])
 
+			amount, ok := new(big.Int).SetString(args[2], 10)
+			if !ok {
+				return fmt.Errorf("failed to conver %s to big.Int", args[2])
+			}
+
 			gasLimit := uint64(cfg.Custom.GasLimit)
 			gasPrice := big.NewInt(cfg.Custom.GasPrice)
 
@@ -225,7 +230,7 @@ func StressTestCmd() *cobra.Command {
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
 							accSeq := d.IncAccSeq()
-							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, nil, gasLimit, gasPrice, calldata)
+							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, gasPrice, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
 							if err != nil {
 								return err

@@ -30,7 +30,7 @@ import (
 
 func NewEvmTxCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "evmtx [calldata] [contract-address] [round] [tx-num]",
+		Use:   "evmtx [calldata] [contract-address] [amount] [round] [tx-num]",
 		Short: "Broadcast evm tx",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,14 +71,19 @@ func NewEvmTxCmd() *cobra.Command {
 
 			contractAddr := common.HexToAddress(args[1])
 
-			round, err := strconv.Atoi(args[2])
-			if err != nil {
-				return fmt.Errorf("round must be integer: %s", args[2])
+			amount, ok := new(big.Int).SetString(args[2], 10)
+			if !ok {
+				return fmt.Errorf("failed to convert %s to big.Int", args[2])
 			}
 
-			txNum, err := strconv.Atoi(args[3])
+			round, err := strconv.Atoi(args[3])
 			if err != nil {
-				return fmt.Errorf("tx-num must be integer: %s", args[3])
+				return fmt.Errorf("round must be integer: %s", args[3])
+			}
+
+			txNum, err := strconv.Atoi(args[4])
+			if err != nil {
+				return fmt.Errorf("tx-num must be integer: %s", args[4])
 			}
 
 			// var addr string = "canto1xtpwsznx7sp9jucefmxdy37yvexztu04t3nskj"
@@ -142,7 +147,7 @@ func NewEvmTxCmd() *cobra.Command {
 
 				var txBytesArray [][]byte
 				for j := 0; j < txNum; j++ {
-					unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, nil, gasLimit, gasPrice, calldata)
+					unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, gasPrice, calldata)
 					signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), ecdsaPrivKey)
 					if err != nil {
 						return err
