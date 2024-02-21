@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -114,28 +115,22 @@ type Scenario struct {
 }
 
 var (
-	scenarios = []Scenario{
-		{2000, 20},
-		{2000, 50},
-		{2000, 200},
-		{2000, 500},
-	}
-	//scenarios = []Scenario{
-	//	{5, 10},
-	//	{5, 50},
-	//	{5, 100},
-	//	{5, 200},
-	//	{5, 300},
-	//	{5, 400},
-	//	{5, 500},
-	//}
+//	scenarios = []Scenario{
+//		{5, 10},
+//		{5, 50},
+//		{5, 100},
+//		{5, 200},
+//		{5, 300},
+//		{5, 400},
+//		{5, 500},
+//	}
 )
 
 func StressTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stress-test [calldata] [contract-address] [amount]",
+		Use:   "stress-test [calldata] [contract-address] [amount] [round] [numTxsPerBlock]",
 		Short: "run stress test",
-		Args:  cobra.ExactArgs(3),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
@@ -199,6 +194,19 @@ func StressTestCmd() *cobra.Command {
 
 			blockTimes := make(map[int64]time.Time)
 
+			rawRound := args[3]
+			round, err := strconv.Atoi(rawRound)
+
+			rawNumTxsPerBlock := args[4]
+			numTxsPerBlock, err := strconv.Atoi(rawNumTxsPerBlock)
+
+			if err != nil {
+				return fmt.Errorf("Cannot parse round, numTxsPerBlock\n%s", err)
+			}
+
+			scenarios := []Scenario{
+				{round, numTxsPerBlock},
+			}
 			for no, scenario := range scenarios {
 				st, err := client.RPC.Status(ctx)
 				if err != nil {
