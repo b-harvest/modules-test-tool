@@ -18,6 +18,7 @@ type Config struct {
 	RPC       *RPCConfig    `toml:"rpc"`
 	GRPC      *GRPCConfig   `toml:"grpc"`
 	LCD       *LCDConfig    `toml:"lcd"`
+	EthRPC    *ETHConfig    `toml:"ethrpc"`
 	Custom    *CustomConfig `toml:"custom"`
 	IBCconfig *IBCconfig    `toml:"ibcconfig"`
 }
@@ -34,6 +35,11 @@ type GRPCConfig struct {
 
 // LCDConfig contains the configuration of the REST server endpoint.
 type LCDConfig struct {
+	Address string `toml:"address"`
+}
+
+// ETHConfig contains the configuration of the JSON-RPC server endpoint.
+type ETHConfig struct {
 	Address string `toml:"address"`
 }
 
