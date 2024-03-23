@@ -3,10 +3,13 @@ package cmd
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math/big"
-	"time"
+	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -113,7 +116,22 @@ type Scenario struct {
 	NumTxsPerBlock int
 }
 
+type AccountConfig struct {
+	AccountName string `json:"accountName"`
+	Address     string `json:"address"`
+	Mnemonic    string `json:"mnemonic"`
+}
+
+type AccountsConfig struct {
+	Accounts []AccountConfig `json:"accounts"`
+}
+
+func init() {
+	accountFilePath = "account.json"
+}
+
 var (
+	accountFilePath string
 	//scenarios = []Scenario{
 	//	{2000, 20},
 	//	{2000, 50},
@@ -192,19 +210,34 @@ func StressTestCmd() *cobra.Command {
 			gasLimit := uint64(cfg.Custom.GasLimit)
 			gasPrice := big.NewInt(cfg.Custom.GasPrice)
 
-			d := NewAccountDispenser(client, cfg.Custom.Mnemonics, cfg.Custom.CantoAddress)
-			if err := d.Next(); err != nil {
-				return fmt.Errorf("get next account: %w", err)
-			}
-
-				rawRound := args[3]
+			rawRound := args[3]
 			round, err := strconv.Atoi(rawRound)
 
 			rawNumTxsPerBlock := args[4]
 			numTxsPerBlock, err := strconv.Atoi(rawNumTxsPerBlock)
-
 			if err != nil {
 				return fmt.Errorf("Cannot parse round, numTxsPerBlock\n%s", err)
+			}
+
+			rawMaxAccountCount := args[4]
+			maxAccountCount, err := strconv.Atoi(rawMaxAccountCount)
+			if err != nil {
+				return fmt.Errorf("Cannot parse maxAccountCount\n%s", err)
+			}
+
+			var accounts AccountsConfig
+			bytes, err := os.ReadFile(accountFilePath)
+			if err != nil {
+				return fmt.Errorf("failed to read account file: %w", err)
+			}
+
+			err = json.Unmarshal(bytes, &accounts)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal accounts: %w", err)
+			}
+
+			if maxAccountCount > len(accounts.Accounts) {
+				return fmt.Errorf("maxAccountCount is hgiher than accounts total count. \nCheckup your account json file: %w", err)
 			}
 
 			scenarios := []Scenario{
@@ -243,6 +276,11 @@ func StressTestCmd() *cobra.Command {
 				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
+							d := NewAccountDispenser(client, strings.Split(accounts.Accounts[sent%maxAccountCount].Mnemonic, " "), accounts.Accounts[sent%maxAccountCount].Address)
+							if err := d.Next(); err != nil {
+								return fmt.Errorf("get next account: %w", err)
+							}
+
 							accSeq := d.IncAccSeq()
 							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, gasPrice, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
