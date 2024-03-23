@@ -151,9 +151,9 @@ var (
 
 func StressTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stress-test [calldata] [contract-address] [amount]",
+		Use:   "stress-test [calldata] [contract-address] [amount] [round] [txs-per-round] [max-account-count]",
 		Short: "run stress test",
-		Args:  cobra.ExactArgs(5),
+		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
@@ -219,7 +219,7 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("Cannot parse round, numTxsPerBlock\n%s", err)
 			}
 
-			rawMaxAccountCount := args[4]
+			rawMaxAccountCount := args[5]
 			maxAccountCount, err := strconv.Atoi(rawMaxAccountCount)
 			if err != nil {
 				return fmt.Errorf("Cannot parse maxAccountCount\n%s", err)
