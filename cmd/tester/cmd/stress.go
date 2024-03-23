@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
+	"github.com/ghodss/yaml"
 	"math/big"
 	"os"
 	"strconv"
@@ -125,13 +125,19 @@ type AccountConfig struct {
 type AccountsConfig struct {
 	Accounts []AccountConfig `json:"accounts"`
 }
-
-func init() {
-	accountFilePath = "account.json"
+type RawValidator struct {
+	Moniker string `yaml:"Moniker"`
+	Address string `yaml:"Address"`
+	//BalAmount    string `yaml:"BalAmount"`
+	//StakeAmount  string `yaml:"StakeAmount"`
+	ValidatorKey string `yaml:"ValidatorKey"`
+	Mnemonic     string `yaml:"Mnemonic"`
 }
 
+type RawValidatorList []RawValidator
+
 var (
-	accountFilePath string
+	accountFilePath = "account.yaml"
 	//scenarios = []Scenario{
 	//	{2000, 20},
 	//	{2000, 50},
@@ -225,18 +231,18 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("Cannot parse maxAccountCount\n%s", err)
 			}
 
-			var accounts AccountsConfig
+			var accounts RawValidatorList
 			bytes, err := os.ReadFile(accountFilePath)
 			if err != nil {
 				return fmt.Errorf("failed to read account file: %w", err)
 			}
 
-			err = json.Unmarshal(bytes, &accounts)
+			err = yaml.Unmarshal(bytes, &accounts)
 			if err != nil {
 				return fmt.Errorf("failed to unmarshal accounts: %w", err)
 			}
 
-			if maxAccountCount > len(accounts.Accounts) {
+			if maxAccountCount > len(accounts) {
 				return fmt.Errorf("maxAccountCount is hgiher than accounts total count. \nCheckup your account json file: %w", err)
 			}
 
@@ -276,7 +282,7 @@ func StressTestCmd() *cobra.Command {
 				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
-							d := NewAccountDispenser(client, strings.Split(accounts.Accounts[sent%maxAccountCount].Mnemonic, " "), accounts.Accounts[sent%maxAccountCount].Address)
+							d := NewAccountDispenser(client, strings.Split(accounts[sent%maxAccountCount].Mnemonic, " "), accounts[sent%maxAccountCount].Address)
 							if err := d.Next(); err != nil {
 								return fmt.Errorf("get next account: %w", err)
 							}

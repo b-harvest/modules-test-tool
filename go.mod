@@ -11,6 +11,7 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/evmos/ethermint v0.19.3
+	github.com/ghodss/yaml v1.0.0
 	github.com/pelletier/go-toml v1.2.0
 	github.com/rs/zerolog v1.31.0
 	github.com/spf13/cobra v1.8.0
@@ -172,6 +173,7 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 	nhooyr.io/websocket v1.8.10 // indirect
