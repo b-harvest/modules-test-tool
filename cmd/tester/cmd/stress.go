@@ -245,15 +245,15 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("maxAccountCount is hgiher than accounts total count. \nCheckup your account json file: %w", err)
 			}
 
-			var (
-				mnemonics []string
-				addresses []string
-			)
-
-			for _, account := range accounts {
-				mnemonics = append(mnemonics, account.Mnemonic)
-				addresses = append(addresses, account.Address)
-			}
+			//var (
+			//	mnemonics []string
+			//	addresses []string
+			//)
+			//
+			//for _, account := range accounts {
+			//	mnemonics = append(mnemonics, account.Mnemonic)
+			//	addresses = append(addresses, account.Address)
+			//}
 
 			scenarios := []Scenario{
 				{round, numTxsPerBlock},
@@ -291,7 +291,7 @@ func StressTestCmd() *cobra.Command {
 				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
-							d := NewAccountDispenser(client, mnemonics, addresses[0])
+							d := NewAccountDispenser(client, []string{accounts[sent%maxAccountCount].Mnemonic}, accounts[sent%maxAccountCount].Address)
 							if err := d.Next(); err != nil {
 								return fmt.Errorf("get next account: %w", err)
 							}
