@@ -156,9 +156,9 @@ var (
 
 func StressTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stress-test [calldata] [contract-address] [amount] [round] [txs-per-round] [max-account-count]",
+		Use:   "stress-test [calldata] [contract-address] [amount] [round] [txs-per-round] [max-account-count] [add-gas-amount]",
 		Short: "run stress test",
-		Args:  cobra.ExactArgs(6),
+		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
@@ -235,6 +235,12 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("failed to read account file: %w", err)
 			}
 
+			rawAddGasAmount := args[6]
+			addGasAmount, err := strconv.Atoi(rawAddGasAmount)
+			if err != nil {
+				return fmt.Errorf("Cannot parse addGasAmount: %s\n", err)
+			}
+
 			err = yaml.Unmarshal(bytes, &accounts)
 			if err != nil {
 				return fmt.Errorf("failed to unmarshal accounts: %w", err)
@@ -296,7 +302,7 @@ func StressTestCmd() *cobra.Command {
 							}
 
 							accSeq := d.IncAccSeq() + uint64(sent/maxAccountCount)
-							nowGas := big.NewInt(cfg.Custom.GasPrice + (100000000000 * int64(sent/maxAccountCount)))
+							nowGas := big.NewInt(cfg.Custom.GasPrice + int64(addGasAmount*sent))
 							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, nowGas, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
 							//fmt.Println(cfg.Custom.ChainID)
