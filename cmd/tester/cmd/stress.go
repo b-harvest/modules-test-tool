@@ -213,7 +213,6 @@ func StressTestCmd() *cobra.Command {
 			}
 
 			gasLimit := uint64(cfg.Custom.GasLimit)
-			gasPrice := big.NewInt(cfg.Custom.GasPrice)
 
 			rawRound := args[3]
 			round, err := strconv.Atoi(rawRound)
@@ -296,8 +295,9 @@ func StressTestCmd() *cobra.Command {
 								return fmt.Errorf("get next account: %w", err)
 							}
 
-							accSeq := d.IncAccSeq()
-							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, gasPrice, calldata)
+							accSeq := d.IncAccSeq() + uint64(sent/maxAccountCount)
+							nowGas := big.NewInt(cfg.Custom.GasPrice + (100000000000 * int64(sent/maxAccountCount)))
+							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, nowGas, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
 							//fmt.Println(cfg.Custom.ChainID)
 							if err != nil {
