@@ -330,6 +330,9 @@ func StressTestCmd() *cobra.Command {
 									d.DecAccSeq()
 									break loop
 								}
+								if resp.TxResponse.Code == 0x5 {
+									continue
+								}
 								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
 									if err := d.Next(); err != nil {
 										return fmt.Errorf("get next account: %w", err)
