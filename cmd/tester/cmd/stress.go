@@ -330,7 +330,8 @@ func StressTestCmd() *cobra.Command {
 									break loop
 								}
 								if resp.TxResponse.Code == 0x5 {
-									continue
+									log.Printf("Insufficient funds!!! %s", d.addr)
+									break
 								}
 								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
 									if err := d.Next(); err != nil {
