@@ -289,7 +289,7 @@ func StressTestCmd() *cobra.Command {
 							accSeq := d.IncAccSeq()
 							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, gasPrice, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
-							fmt.Println(cfg.Custom.ChainID)
+							//fmt.Println(cfg.Custom.ChainID)
 							if err != nil {
 								return err
 							}
