@@ -34,7 +34,7 @@ type AccountDispenser struct {
 	c            *client.Client
 	mnemonics    []string
 	i            int
-	addr         string
+	addr         []string
 	privKey      cryptotypes.PrivKey
 	ecdsaPrivKey *ecdsa.PrivateKey
 	accSeq       uint64
@@ -42,15 +42,16 @@ type AccountDispenser struct {
 	evmDenom     string
 }
 
-func NewAccountDispenser(c *client.Client, mnemonics []string, canto_addr string) *AccountDispenser {
+func NewAccountDispenser(c *client.Client, mnemonics []string, canto_addrs []string) *AccountDispenser {
 	return &AccountDispenser{
 		c:         c,
 		mnemonics: mnemonics,
-		addr:      canto_addr,
+		addr:      canto_addrs,
 	}
 }
 
 func (d *AccountDispenser) Next() error {
+	println(d.i)
 	mnemonic := d.mnemonics[d.i]
 	bz, err := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, etherminttypes.BIP44HDPath)
 	if err != nil {
@@ -64,7 +65,7 @@ func (d *AccountDispenser) Next() error {
 
 	d.privKey = privKey
 	d.ecdsaPrivKey = ecdsaPrivKey
-	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), d.addr)
+	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), d.addr[d.i])
 	if err != nil {
 		return fmt.Errorf("get base account info: %w", err)
 	}
@@ -85,7 +86,7 @@ func (d *AccountDispenser) Next() error {
 }
 
 func (d *AccountDispenser) Addr() string {
-	return d.addr
+	return d.addr[d.i]
 }
 
 func (d *AccountDispenser) PrivKey() cryptotypes.PrivKey {
@@ -239,9 +240,13 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("failed to unmarshal accounts: %w", err)
 			}
 
-			var mnemonics []string
+			var (
+				mnemonics []string
+				addresses []string
+			)
 			for _, account := range accounts {
 				mnemonics = append(mnemonics, account.Mnemonic)
+				addresses = append(addresses, account.Address)
 			}
 
 			rawAddGasAmount := args[6]
@@ -298,7 +303,7 @@ func StressTestCmd() *cobra.Command {
 					started := time.Now()
 					sent := 0
 
-					d := NewAccountDispenser(client, mnemonics, accounts[sent%maxAccountCount].Address)
+					d := NewAccountDispenser(client, mnemonics, addresses)
 					if err := d.Next(); err != nil {
 						return fmt.Errorf("get next account: %w", err)
 					}
