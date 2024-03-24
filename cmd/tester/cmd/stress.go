@@ -50,8 +50,7 @@ func NewAccountDispenser(c *client.Client, mnemonics []string, canto_addrs []str
 	}
 }
 
-func (d *AccountDispenser) Next() error {
-	println(d.i)
+func (d *AccountDispenser) Next(initialAccSeq bool) error {
 	mnemonic := d.mnemonics[d.i]
 	bz, err := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, etherminttypes.BIP44HDPath)
 	if err != nil {
@@ -69,7 +68,9 @@ func (d *AccountDispenser) Next() error {
 	if err != nil {
 		return fmt.Errorf("get base account info: %w", err)
 	}
-	d.accSeq = acc.GetSequence()
+	if initialAccSeq {
+		d.accSeq = acc.GetSequence()
+	}
 	d.accNum = acc.GetAccountNumber()
 	d.i++
 	if d.i >= len(d.mnemonics) {
@@ -290,6 +291,10 @@ func StressTestCmd() *cobra.Command {
 
 				targetHeight := startingHeight
 
+				d := NewAccountDispenser(client, mnemonics, addresses)
+				if err := d.Next(true); err != nil {
+					return fmt.Errorf("get next account: %w", err)
+				}
 				for i := 0; i < scenario.Rounds; i++ {
 					st, err := client.RPC.Status(ctx)
 					if err != nil {
@@ -303,10 +308,6 @@ func StressTestCmd() *cobra.Command {
 					started := time.Now()
 					sent := 0
 
-					d := NewAccountDispenser(client, mnemonics, addresses)
-					if err := d.Next(); err != nil {
-						return fmt.Errorf("get next account: %w", err)
-					}
 				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
@@ -360,7 +361,7 @@ func StressTestCmd() *cobra.Command {
 									break
 								}
 								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
-									if err := d.Next(); err != nil {
+									if err := d.Next(false); err != nil {
 										return fmt.Errorf("get next account: %w", err)
 									}
 									log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
@@ -370,7 +371,7 @@ func StressTestCmd() *cobra.Command {
 									panic(fmt.Sprintf("%#v\n", resp.TxResponse))
 								}
 							}
-							if err := d.Next(); err != nil {
+							if err := d.Next(false); err != nil {
 								return fmt.Errorf("get next account: %w", err)
 							}
 
