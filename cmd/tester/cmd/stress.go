@@ -37,7 +37,7 @@ type AccountDispenser struct {
 	addr         []string
 	privKey      cryptotypes.PrivKey
 	ecdsaPrivKey *ecdsa.PrivateKey
-	accSeq       uint64
+	accSeq       []uint64
 	accNum       uint64
 	evmDenom     string
 }
@@ -50,7 +50,16 @@ func NewAccountDispenser(c *client.Client, mnemonics []string, canto_addrs []str
 	}
 }
 
-func (d *AccountDispenser) Next(initialAccSeq bool) error {
+func (d *AccountDispenser) InitSeq() error {
+	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), d.addr[d.i])
+	if err != nil {
+		return fmt.Errorf("get base account info: %w", err)
+	}
+	d.accSeq[d.i] = acc.GetSequence()
+	return nil
+}
+
+func (d *AccountDispenser) Next() error {
 	mnemonic := d.mnemonics[d.i]
 	bz, err := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, etherminttypes.BIP44HDPath)
 	if err != nil {
@@ -67,9 +76,6 @@ func (d *AccountDispenser) Next(initialAccSeq bool) error {
 	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), d.addr[d.i])
 	if err != nil {
 		return fmt.Errorf("get base account info: %w", err)
-	}
-	if initialAccSeq {
-		d.accSeq = acc.GetSequence()
 	}
 	d.accNum = acc.GetAccountNumber()
 	d.i++
@@ -95,7 +101,7 @@ func (d *AccountDispenser) PrivKey() cryptotypes.PrivKey {
 }
 
 func (d *AccountDispenser) AccSeq() uint64 {
-	return d.accSeq
+	return d.accSeq[d.i]
 }
 
 func (d *AccountDispenser) AccNum() uint64 {
@@ -103,13 +109,13 @@ func (d *AccountDispenser) AccNum() uint64 {
 }
 
 func (d *AccountDispenser) IncAccSeq() uint64 {
-	r := d.accSeq
-	d.accSeq++
+	r := d.accSeq[d.i]
+	d.accSeq[d.i]++
 	return r
 }
 
 func (d *AccountDispenser) DecAccSeq() {
-	d.accSeq--
+	d.accSeq[d.i]--
 }
 
 type Scenario struct {
@@ -292,7 +298,10 @@ func StressTestCmd() *cobra.Command {
 				targetHeight := startingHeight
 
 				d := NewAccountDispenser(client, mnemonics, addresses)
-				if err := d.Next(true); err != nil {
+				if err = d.InitSeq(); err != nil {
+					return fmt.Errorf("get next account: %w", err)
+				}
+				if err = d.Next(); err != nil {
 					return fmt.Errorf("get next account: %w", err)
 				}
 				for i := 0; i < scenario.Rounds; i++ {
@@ -361,7 +370,7 @@ func StressTestCmd() *cobra.Command {
 									break
 								}
 								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
-									if err := d.Next(false); err != nil {
+									if err := d.Next(); err != nil {
 										return fmt.Errorf("get next account: %w", err)
 									}
 									log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
@@ -371,7 +380,7 @@ func StressTestCmd() *cobra.Command {
 									panic(fmt.Sprintf("%#v\n", resp.TxResponse))
 								}
 							}
-							if err := d.Next(false); err != nil {
+							if err := d.Next(); err != nil {
 								return fmt.Errorf("get next account: %w", err)
 							}
 
