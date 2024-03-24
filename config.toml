@@ -12,7 +12,7 @@ mnemonics = ["assist field six actual frown fury diet bulb address hello van swa
 canto_address = "canto1xtpwsznx7sp9jucefmxdy37yvexztu04t3nskj"
 
 gas_limit = 2000000
-gas_price = 10000
+gas_price = 1000000000000
 chain_id = 7700
 
 [ibcconfig]
