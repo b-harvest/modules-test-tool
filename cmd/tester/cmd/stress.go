@@ -285,6 +285,7 @@ func StressTestCmd() *cobra.Command {
 							if err := d.Next(); err != nil {
 								return fmt.Errorf("get next account: %w", err)
 							}
+							log.Printf("sender: %s", d.addr)
 
 							accSeq := d.IncAccSeq()
 							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, gasPrice, calldata)
