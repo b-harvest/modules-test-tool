@@ -300,6 +300,9 @@ func StressTestCmd() *cobra.Command {
 					sent := 0
 
 					d := NewAccountDispenser(client, mnemonics, accounts[sent%maxAccountCount].Address)
+					if err := d.Next(); err != nil {
+						return fmt.Errorf("get next account: %w", err)
+					}
 				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
