@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -282,7 +281,7 @@ func StressTestCmd() *cobra.Command {
 				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
-							d := NewAccountDispenser(client, strings.Split(accounts[sent%maxAccountCount].Mnemonic, " "), accounts[sent%maxAccountCount].Address)
+							d := NewAccountDispenser(client, []string{accounts[sent%maxAccountCount].Mnemonic}, accounts[sent%maxAccountCount].Address)
 							if err := d.Next(); err != nil {
 								return fmt.Errorf("get next account: %w", err)
 							}
