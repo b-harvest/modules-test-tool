@@ -235,6 +235,11 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("failed to read account file: %w", err)
 			}
 
+			var mnemonics []string
+			for _, account := range accounts {
+				mnemonics = append(mnemonics, account.Mnemonic)
+			}
+
 			rawAddGasAmount := args[6]
 			addGasAmount, err := strconv.Atoi(rawAddGasAmount)
 			if err != nil {
@@ -293,15 +298,13 @@ func StressTestCmd() *cobra.Command {
 
 					started := time.Now()
 					sent := 0
+
+					d := NewAccountDispenser(client, mnemonics, accounts[sent%maxAccountCount].Address)
 				loop:
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
-							d := NewAccountDispenser(client, []string{accounts[sent%maxAccountCount].Mnemonic}, accounts[sent%maxAccountCount].Address)
-							if err := d.Next(); err != nil {
-								return fmt.Errorf("get next account: %w", err)
-							}
 
-							accSeq := d.IncAccSeq() + uint64(sent/maxAccountCount)
+							accSeq := d.IncAccSeq()
 							nowGas := big.NewInt(cfg.Custom.GasPrice + int64(addGasAmount*sent))
 							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, nowGas, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
@@ -360,6 +363,10 @@ func StressTestCmd() *cobra.Command {
 									panic(fmt.Sprintf("%#v\n", resp.TxResponse))
 								}
 							}
+							if err := d.Next(); err != nil {
+								return fmt.Errorf("get next account: %w", err)
+							}
+
 							sent++
 						}
 					}
