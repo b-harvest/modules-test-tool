@@ -37,7 +37,7 @@ type AccountDispenser struct {
 	addr         []string
 	privKey      cryptotypes.PrivKey
 	ecdsaPrivKey *ecdsa.PrivateKey
-	accSeq       []uint64
+	accSeq       uint64
 	accNum       uint64
 	evmDenom     string
 }
@@ -48,15 +48,6 @@ func NewAccountDispenser(c *client.Client, mnemonics []string, canto_addrs []str
 		mnemonics: mnemonics,
 		addr:      canto_addrs,
 	}
-}
-
-func (d *AccountDispenser) InitSeq() error {
-	acc, err := d.c.GRPC.GetBaseAccountInfo(context.Background(), d.addr[d.i])
-	if err != nil {
-		return fmt.Errorf("get base account info: %w", err)
-	}
-	d.accSeq[d.i] = acc.GetSequence()
-	return nil
 }
 
 func (d *AccountDispenser) Next() error {
@@ -101,7 +92,7 @@ func (d *AccountDispenser) PrivKey() cryptotypes.PrivKey {
 }
 
 func (d *AccountDispenser) AccSeq() uint64 {
-	return d.accSeq[d.i]
+	return d.accSeq
 }
 
 func (d *AccountDispenser) AccNum() uint64 {
@@ -109,13 +100,13 @@ func (d *AccountDispenser) AccNum() uint64 {
 }
 
 func (d *AccountDispenser) IncAccSeq() uint64 {
-	r := d.accSeq[d.i]
-	d.accSeq[d.i]++
+	r := d.accSeq
+	d.accSeq++
 	return r
 }
 
 func (d *AccountDispenser) DecAccSeq() {
-	d.accSeq[d.i]--
+	d.accSeq--
 }
 
 type Scenario struct {
@@ -146,19 +137,19 @@ type RawValidatorList []RawValidator
 var (
 	accountFilePath = "account.yaml"
 	//scenarios = []Scenario{
-	//	{2000, 20},
-	//	{2000, 50},
-	//	{2000, 200},
-	//	{2000, 500},
+	//      {2000, 20},
+	//      {2000, 50},
+	//      {2000, 200},
+	//      {2000, 500},
 	//}
 	//scenarios = []Scenario{
-	//	{5, 10},
-	//	{5, 50},
-	//	{5, 100},
-	//	{5, 200},
-	//	{5, 300},
-	//	{5, 400},
-	//	{5, 500},
+	//      {5, 10},
+	//      {5, 50},
+	//      {5, 100},
+	//      {5, 200},
+	//      {5, 300},
+	//      {5, 400},
+	//      {5, 500},
 	//}
 )
 
@@ -194,19 +185,19 @@ func StressTestCmd() *cobra.Command {
 			// make calldata
 			//
 			// var NativeMetaData = &bind.MetaData{
-			// 	 ABI: "[{\"inputs\":[],\"name\":\"add\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"subtract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCounter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+			//       ABI: "[{\"inputs\":[],\"name\":\"add\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"subtract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCounter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 			// }
 			//
 			// func main() {
-			// 	 abi, err := NativeMetaData.GetAbi()
-			// 	 if err != nil {
-			// 	 	panic(err)
-			// 	 }
-			// 	 payload, err := abi.Pack("add")
-			// 	 if err != nil {
-			// 	 	panic(err)
-			// 	 }
-			// 	 fmt.Println("Calldata in hex format:", hex.EncodeToString(payload))
+			//       abi, err := NativeMetaData.GetAbi()
+			//       if err != nil {
+			//              panic(err)
+			//       }
+			//       payload, err := abi.Pack("add")
+			//       if err != nil {
+			//              panic(err)
+			//       }
+			//       fmt.Println("Calldata in hex format:", hex.EncodeToString(payload))
 			// }
 			calldata, err := hexutil.Decode(args[0])
 			if err != nil {
@@ -267,13 +258,13 @@ func StressTestCmd() *cobra.Command {
 			}
 
 			//var (
-			//	mnemonics []string
-			//	addresses []string
+			//      mnemonics []string
+			//      addresses []string
 			//)
 			//
 			//for _, account := range accounts {
-			//	mnemonics = append(mnemonics, account.Mnemonic)
-			//	addresses = append(addresses, account.Address)
+			//      mnemonics = append(mnemonics, account.Mnemonic)
+			//      addresses = append(addresses, account.Address)
 			//}
 
 			scenarios := []Scenario{
@@ -281,6 +272,20 @@ func StressTestCmd() *cobra.Command {
 			}
 
 			blockTimes := make(map[int64]time.Time)
+
+			var (
+				accSeqs    []uint64
+				accountSec int
+			)
+			for _, account := range accounts {
+				acc, err := client.GRPC.GetBaseAccountInfo(context.Background(), account.Address)
+				if err != nil {
+					return fmt.Errorf("get base account info: %w", err)
+				}
+				accSeq := acc.GetSequence()
+				fmt.Printf("%d, %s\n", accSeq, account.Address)
+				accSeqs = append(accSeqs, accSeq)
+			}
 
 			for no, scenario := range scenarios {
 				st, err := client.RPC.Status(ctx)
@@ -301,9 +306,6 @@ func StressTestCmd() *cobra.Command {
 				if err = d.Next(); err != nil {
 					return fmt.Errorf("get next account: %w", err)
 				}
-				if err = d.InitSeq(); err != nil {
-					return fmt.Errorf("get next account: %w", err)
-				}
 				for i := 0; i < scenario.Rounds; i++ {
 					st, err := client.RPC.Status(ctx)
 					if err != nil {
@@ -321,10 +323,13 @@ func StressTestCmd() *cobra.Command {
 					for sent < scenario.NumTxsPerBlock {
 						for sent < scenario.NumTxsPerBlock {
 
-							accSeq := d.IncAccSeq()
+							//accSeq := d.IncAccSeq()
 							nowGas := big.NewInt(cfg.Custom.GasPrice + int64(addGasAmount*sent))
-							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, nowGas, calldata)
+							unsignedTx := gethtypes.NewTransaction(accSeqs[accountSec], contractAddr, amount, gasLimit, nowGas, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
+							accSeqs[accountSec]++
+							accountSec++
+							accountSec %= maxAccountCount
 							//fmt.Println(cfg.Custom.ChainID)
 							if err != nil {
 								return err
@@ -377,9 +382,10 @@ func StressTestCmd() *cobra.Command {
 									time.Sleep(500 * time.Millisecond)
 									break
 								} else {
-									panic(fmt.Sprintf("%#v\n", resp.TxResponse))
+									panic(fmt.Sprintf("%#v, %s\n", resp.TxResponse, d.addr[d.i]))
 								}
 							}
+
 							if err := d.Next(); err != nil {
 								return fmt.Errorf("get next account: %w", err)
 							}
