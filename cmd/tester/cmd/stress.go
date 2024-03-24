@@ -298,10 +298,10 @@ func StressTestCmd() *cobra.Command {
 				targetHeight := startingHeight
 
 				d := NewAccountDispenser(client, mnemonics, addresses)
-				if err = d.InitSeq(); err != nil {
+				if err = d.Next(); err != nil {
 					return fmt.Errorf("get next account: %w", err)
 				}
-				if err = d.Next(); err != nil {
+				if err = d.InitSeq(); err != nil {
 					return fmt.Errorf("get next account: %w", err)
 				}
 				for i := 0; i < scenario.Rounds; i++ {
