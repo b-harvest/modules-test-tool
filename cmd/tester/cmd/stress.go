@@ -234,6 +234,10 @@ func StressTestCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to read account file: %w", err)
 			}
+			err = yaml.Unmarshal(bytes, &accounts)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal accounts: %w", err)
+			}
 
 			var mnemonics []string
 			for _, account := range accounts {
@@ -244,11 +248,6 @@ func StressTestCmd() *cobra.Command {
 			addGasAmount, err := strconv.Atoi(rawAddGasAmount)
 			if err != nil {
 				return fmt.Errorf("Cannot parse addGasAmount: %s\n", err)
-			}
-
-			err = yaml.Unmarshal(bytes, &accounts)
-			if err != nil {
-				return fmt.Errorf("failed to unmarshal accounts: %w", err)
 			}
 
 			if maxAccountCount > len(accounts) {
