@@ -48,25 +48,6 @@ func NewEvmTxCmd() *cobra.Command {
 				return err
 			}
 
-			// make calldata
-			//
-			// var NativeMetaData = &bind.MetaData{
-			// 	 ABI: "[{\"inputs\":[],\"name\":\"add\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"subtract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCounter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-			// }
-			//
-			// func main() {
-			// 	 abi, err := NativeMetaData.GetAbi()
-			// 	 if err != nil {
-			// 	 	panic(err)
-			// 	 }
-			// 	 payload, err := abi.Pack("add")
-			// 	 if err != nil {
-			// 	 	panic(err)
-			// 	 }
-			// 	 fmt.Println("Calldata in hex format:", hex.EncodeToString(payload))
-			// }
-
-			// var addr string = "canto1xtpwsznx7sp9jucefmxdy37yvexztu04t3nskj"
 			var addr string = cfg.Custom.CantoAddress
 			mnemonic := cfg.Custom.Mnemonics[0]
 			bz, err := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, etherminttypes.BIP44HDPath)

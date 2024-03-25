@@ -12,7 +12,7 @@ address = "http://localhost:8545"
 
 [custom]
 mnemonics = ["copper push brief egg scan entry inform record adjust fossil boss egg comic alien upon aspect dry avoid interest fury window hint race symptom",]
-canto_address = "canto1xtpwsznx7sp9jucefmxdy37yvexztu04t3nskj"
+canto_address = "canto1cml96vmptgw99syqrrz8az79xer2pcgphz3njn"
 
 gas_limit = 232713
 gas_price = 10000
