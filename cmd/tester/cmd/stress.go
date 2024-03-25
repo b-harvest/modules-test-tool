@@ -275,7 +275,7 @@ func StressTestCmd() *cobra.Command {
 
 			var (
 				accSeqs    []uint64
-				accountSec int
+				senderFlag int
 			)
 			for _, account := range accounts {
 				acc, err := client.GRPC.GetBaseAccountInfo(context.Background(), account.Address)
@@ -285,6 +285,18 @@ func StressTestCmd() *cobra.Command {
 				accSeq := acc.GetSequence()
 				fmt.Printf("%d, %s\n", accSeq, account.Address)
 				accSeqs = append(accSeqs, accSeq)
+			}
+
+			f, err := os.ReadFile("sender.txt")
+			if err != nil {
+				senderFile, _ := os.Create("sender.txt")
+				senderFile.Write([]byte("0"))
+				senderFlag = 0
+			} else {
+				senderFlag, err = strconv.Atoi(string(f))
+				if err != nil {
+					return fmt.Errorf("Cannot get sender flag!!!!!!\n")
+				}
 			}
 
 			for no, scenario := range scenarios {
@@ -325,11 +337,11 @@ func StressTestCmd() *cobra.Command {
 
 							//accSeq := d.IncAccSeq()
 							nowGas := big.NewInt(cfg.Custom.GasPrice + int64(addGasAmount*sent))
-							unsignedTx := gethtypes.NewTransaction(accSeqs[accountSec], contractAddr, amount, gasLimit, nowGas, calldata)
+							unsignedTx := gethtypes.NewTransaction(accSeqs[senderFlag], contractAddr, amount, gasLimit, nowGas, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
-							accSeqs[accountSec]++
-							accountSec++
-							accountSec %= maxAccountCount
+							accSeqs[senderFlag]++
+							senderFlag++
+							senderFlag %= maxAccountCount
 							//fmt.Println(cfg.Custom.ChainID)
 							if err != nil {
 								return err
@@ -436,6 +448,11 @@ func StressTestCmd() *cobra.Command {
 					time.Sleep(5 * time.Second)
 				}
 				log.Debug().Str("elapsed", time.Since(started).String()).Msg("done cooling down")
+
+				senderFile, _ := os.Create("sender.txt")
+				senderFlagStr := strconv.Itoa(senderFlag)
+				senderFile.Write([]byte(senderFlagStr))
+
 				time.Sleep(time.Minute)
 			}
 
