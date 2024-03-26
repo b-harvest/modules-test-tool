@@ -114,15 +114,6 @@ type Scenario struct {
 	NumTxsPerBlock int
 }
 
-type AccountConfig struct {
-	AccountName string `json:"accountName"`
-	Address     string `json:"address"`
-	Mnemonic    string `json:"mnemonic"`
-}
-
-type AccountsConfig struct {
-	Accounts []AccountConfig `json:"accounts"`
-}
 type RawValidator struct {
 	Moniker string `yaml:"Moniker"`
 	Address string `yaml:"Address"`
@@ -130,6 +121,7 @@ type RawValidator struct {
 	//StakeAmount  string `yaml:"StakeAmount"`
 	ValidatorKey string `yaml:"ValidatorKey"`
 	Mnemonic     string `yaml:"Mnemonic"`
+	AccSequence  uint64 `yaml:"accSequence"`
 }
 
 type RawValidatorList []RawValidator
@@ -274,17 +266,15 @@ func StressTestCmd() *cobra.Command {
 			blockTimes := make(map[int64]time.Time)
 
 			var (
-				accSeqs    []uint64
 				senderFlag int
 			)
-			for _, account := range accounts {
+			for idx, account := range accounts {
 				acc, err := client.GRPC.GetBaseAccountInfo(context.Background(), account.Address)
 				if err != nil {
 					return fmt.Errorf("get base account info: %w", err)
 				}
 				accSeq := acc.GetSequence()
-				fmt.Printf("%d, %s\n", accSeq, account.Address)
-				accSeqs = append(accSeqs, accSeq)
+				accounts[idx].AccSequence = accSeq
 			}
 
 			f, err := os.ReadFile("sender.txt")
@@ -337,9 +327,10 @@ func StressTestCmd() *cobra.Command {
 
 							//accSeq := d.IncAccSeq()
 							nowGas := big.NewInt(cfg.Custom.GasPrice + int64(addGasAmount*sent))
-							unsignedTx := gethtypes.NewTransaction(accSeqs[senderFlag], contractAddr, amount, gasLimit, nowGas, calldata)
+
+							unsignedTx := gethtypes.NewTransaction(accounts[senderFlag].AccSequence, contractAddr, amount, gasLimit, nowGas, calldata)
 							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
-							accSeqs[senderFlag]++
+							accounts[senderFlag].AccSequence++
 							senderFlag++
 							senderFlag %= maxAccountCount
 							//fmt.Println(cfg.Custom.ChainID)
