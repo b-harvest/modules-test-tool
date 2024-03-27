@@ -245,7 +245,8 @@ func StressTestCmd() *cobra.Command {
 							}
 
 							if resp.TxResponse.Code != 0 {
-								log.Warn().Msgf("tx failed: %#v", resp.TxResponse.Code)
+								log.Warn().Msgf("tx failed: %#v", resp.TxResponse)
+								log.Warn().Msgf("code: %d", resp.TxResponse.Code)
 							}
 						}(&wg, txByte)
 					}
