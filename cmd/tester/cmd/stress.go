@@ -8,12 +8,12 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -110,8 +110,8 @@ func (d *AccountDispenser) DecAccSeq() {
 }
 
 type Scenario struct {
-	Rounds         int
-	NumTxsPerBlock int
+	Rounds int
+	Tps    int
 }
 
 type RawValidator struct {
@@ -147,9 +147,9 @@ var (
 
 func StressTestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stress-test [calldata] [contract-address] [amount] [round] [txs-per-round] [max-account-count] [add-gas-amount]",
+		Use:   "stress-test [calldata] [contract-address] [amount] [round] [tps] [max-account-count]",
 		Short: "run stress test",
-		Args:  cobra.ExactArgs(7),
+		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 
@@ -174,23 +174,6 @@ func StressTestCmd() *cobra.Command {
 			}
 			defer client.Stop() // nolint: errcheck
 
-			// make calldata
-			//
-			// var NativeMetaData = &bind.MetaData{
-			//       ABI: "[{\"inputs\":[],\"name\":\"add\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"subtract\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getCounter\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-			// }
-			//
-			// func main() {
-			//       abi, err := NativeMetaData.GetAbi()
-			//       if err != nil {
-			//              panic(err)
-			//       }
-			//       payload, err := abi.Pack("add")
-			//       if err != nil {
-			//              panic(err)
-			//       }
-			//       fmt.Println("Calldata in hex format:", hex.EncodeToString(payload))
-			// }
 			calldata, err := hexutil.Decode(args[0])
 			if err != nil {
 				return fmt.Errorf("failed to decode ethereum tx hex bytes: %w", err)
@@ -208,10 +191,10 @@ func StressTestCmd() *cobra.Command {
 			rawRound := args[3]
 			round, err := strconv.Atoi(rawRound)
 
-			rawNumTxsPerBlock := args[4]
-			numTxsPerBlock, err := strconv.Atoi(rawNumTxsPerBlock)
+			rawTps := args[4]
+			numTps, err := strconv.Atoi(rawTps)
 			if err != nil {
-				return fmt.Errorf("Cannot parse round, numTxsPerBlock\n%s", err)
+				return fmt.Errorf("Cannot parse round, numTps\n%s", err)
 			}
 
 			rawMaxAccountCount := args[5]
@@ -239,8 +222,8 @@ func StressTestCmd() *cobra.Command {
 				addresses = append(addresses, account.Address)
 			}
 
-			rawAddGasAmount := args[6]
-			addGasAmount, err := strconv.Atoi(rawAddGasAmount)
+			//rawAddGasAmount := args[6]
+			//addGasAmount, err := strconv.Atoi(rawAddGasAmount)
 			if err != nil {
 				return fmt.Errorf("Cannot parse addGasAmount: %s\n", err)
 			}
@@ -260,10 +243,8 @@ func StressTestCmd() *cobra.Command {
 			//}
 
 			scenarios := []Scenario{
-				{round, numTxsPerBlock},
+				{round, numTps},
 			}
-
-			blockTimes := make(map[int64]time.Time)
 
 			var (
 				senderFlag int
@@ -275,6 +256,7 @@ func StressTestCmd() *cobra.Command {
 				}
 				accSeq := acc.GetSequence()
 				accounts[idx].AccSequence = accSeq
+				println(accounts[idx].AccSequence)
 			}
 
 			f, err := os.ReadFile("sender.txt")
@@ -289,141 +271,128 @@ func StressTestCmd() *cobra.Command {
 				}
 			}
 
-			for no, scenario := range scenarios {
-				st, err := client.RPC.Status(ctx)
-				if err != nil {
-					return fmt.Errorf("get status: %w", err)
-				}
-				startingHeight := st.SyncInfo.LatestBlockHeight + 2
-				log.Info().Msgf("current block height is %d, waiting for the next block to be committed", st.SyncInfo.LatestBlockHeight)
-
-				if err := rpcclient.WaitForHeight(client.RPC, startingHeight-1, nil); err != nil {
-					return fmt.Errorf("wait for height: %w", err)
-				}
-				log.Info().Msgf("starting simulation #%d, rounds = %d, num txs per block = %d", no+1, scenario.Rounds, scenario.NumTxsPerBlock)
-
-				targetHeight := startingHeight
-
+			for _, scenario := range scenarios {
 				d := NewAccountDispenser(client, mnemonics, addresses)
 				if err = d.Next(); err != nil {
 					return fmt.Errorf("get next account: %w", err)
 				}
-				for i := 0; i < scenario.Rounds; i++ {
-					st, err := client.RPC.Status(ctx)
-					if err != nil {
-						return fmt.Errorf("get status: %w", err)
-					}
-					if st.SyncInfo.LatestBlockHeight != targetHeight-1 {
-						log.Warn().Int64("expected", targetHeight-1).Int64("got", st.SyncInfo.LatestBlockHeight).Msg("mismatching block height")
-						targetHeight = st.SyncInfo.LatestBlockHeight + 1
-					}
 
+				nowGas := big.NewInt(cfg.Custom.GasPrice * int64(2))
+				for i := 0; i < scenario.Rounds; i++ {
 					started := time.Now()
 					sent := 0
 
-				loop:
-					for sent < scenario.NumTxsPerBlock {
-						for sent < scenario.NumTxsPerBlock {
+					log.Info().Msgf("start round %d", i)
+					var txsBytes [][]byte
 
-							//accSeq := d.IncAccSeq()
-							nowGas := big.NewInt(cfg.Custom.GasPrice + int64(addGasAmount*sent))
+					for j := 0; j < scenario.Tps; j++ {
+						unsignedTx := gethtypes.NewTransaction(accounts[senderFlag].AccSequence, contractAddr, amount, gasLimit, nowGas, calldata)
+						signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
+						accounts[senderFlag].AccSequence++
 
-							unsignedTx := gethtypes.NewTransaction(accounts[senderFlag].AccSequence, contractAddr, amount, gasLimit, nowGas, calldata)
-							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
-							accounts[senderFlag].AccSequence++
-							senderFlag++
-							senderFlag %= maxAccountCount
-							//fmt.Println(cfg.Custom.ChainID)
+						senderFlag++
+						senderFlag %= maxAccountCount
+						//fmt.Println(cfg.Custom.ChainID)
+						if err != nil {
+							return err
+						}
+
+						ethTxBytes, err := rlp.EncodeToBytes(signedTx)
+						if err != nil {
+							return err
+						}
+
+						msg := &evmtypes.MsgEthereumTx{}
+						if err := msg.UnmarshalBinary(ethTxBytes); err != nil {
+							return err
+						}
+
+						if err := msg.ValidateBasic(); err != nil {
+							return err
+						}
+
+						tx, err := msg.BuildTx(txConfig.NewTxBuilder(), d.evmDenom)
+						if err != nil {
+							return err
+						}
+
+						txBytes, err := txConfig.TxEncoder()(tx)
+						if err != nil {
+							return fmt.Errorf("sign tx: %w", err)
+						}
+
+						txsBytes = append(txsBytes, txBytes)
+					}
+
+					var (
+						wg sync.WaitGroup
+						mu = &sync.Mutex{}
+					)
+					errCh := make(chan error, scenario.Tps) // Error channel with a buffer size of Tps
+
+					for j := 0; j < len(txsBytes); j++ {
+						wg.Add(1)
+						go func(k int) { // Pass the loop variable as a parameter to avoid capturing it
+							defer wg.Done()
+
+							resp, err := client.GRPC.BroadcastTx(ctx, txsBytes[k])
 							if err != nil {
-								return err
-							}
-
-							ethTxBytes, err := rlp.EncodeToBytes(signedTx)
-							if err != nil {
-								return err
-							}
-
-							msg := &evmtypes.MsgEthereumTx{}
-							if err := msg.UnmarshalBinary(ethTxBytes); err != nil {
-								return err
-							}
-
-							if err := msg.ValidateBasic(); err != nil {
-								return err
-							}
-
-							tx, err := msg.BuildTx(txConfig.NewTxBuilder(), d.evmDenom)
-							if err != nil {
-								return err
-							}
-
-							txBytes, err := txConfig.TxEncoder()(tx)
-							if err != nil {
-								return fmt.Errorf("sign tx: %w", err)
-							}
-
-							resp, err := client.GRPC.BroadcastTx(ctx, txBytes)
-							if err != nil {
-								return fmt.Errorf("broadcast tx: %w", err)
+								errCh <- fmt.Errorf("broadcast tx: %w", err)
+								return
 							}
 
 							if resp.TxResponse.Code != 0 {
-								if resp.TxResponse.Code == 0x14 {
+								switch resp.TxResponse.Code {
+								case 0x14:
 									log.Warn().Msg("mempool is full, stopping")
 									d.DecAccSeq()
-									break loop
-								}
-								if resp.TxResponse.Code == 0x5 {
-									log.Printf("Insufficient funds!!! %s", d.addr)
-									break
-								}
-								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
+									errCh <- fmt.Errorf("mempool is full")
+									return
+								case 0x5:
+									errCh <- fmt.Errorf("insufficient funds!!! %s", d.addr)
+									return // Using return instead of break since we're in a goroutine
+								case 0x13, 0x20:
 									if err := d.Next(); err != nil {
-										return fmt.Errorf("get next account: %w", err)
+										errCh <- fmt.Errorf("get next account: %w", err)
+										return
 									}
 									log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
 									time.Sleep(500 * time.Millisecond)
-									break
-								} else {
-									panic(fmt.Sprintf("%#v, %s\n", resp.TxResponse, d.addr[d.i]))
+								default:
+									errCh <- fmt.Errorf("unexpected error code: %#v, %s", resp.TxResponse, d.addr[d.i])
+									return
 								}
 							}
 
 							if err := d.Next(); err != nil {
-								return fmt.Errorf("get next account: %w", err)
+								errCh <- fmt.Errorf("get next account: %w", err)
+								return
 							}
 
+							mu.Lock()
 							sent++
+							mu.Unlock()
+						}(j)
+					}
+
+					// Start a goroutine to listen on the errCh channel and print errors
+					go func() {
+						for err := range errCh {
+							log.Info().Msgf("Error: %s", err)
 						}
-					}
-					log.Debug().Msgf("took %s broadcasting txs", time.Since(started))
+					}()
 
-					if err := rpcclient.WaitForHeight(client.RPC, targetHeight, nil); err != nil {
-						return fmt.Errorf("wait for height: %w", err)
+					wg.Wait() // Wait for all goroutines to finish
+					close(errCh)
+
+					elapsed := time.Since(started)
+
+					log.Debug().Msgf("took %s broadcasting txs", elapsed)
+					if elapsed < time.Second {
+						time.Sleep(time.Second - elapsed)
 					}
 
-					r, err := client.RPC.Block(ctx, &targetHeight)
-					if err != nil {
-						return err
-					}
-					var blockDuration time.Duration
-					bt, ok := blockTimes[targetHeight-1]
-					if !ok {
-						log.Warn().Msg("past block time not found")
-					} else {
-						blockDuration = r.Block.Time.Sub(bt)
-						delete(blockTimes, targetHeight-1)
-					}
-					blockTimes[targetHeight] = r.Block.Time
-					log.Info().
-						Int64("height", targetHeight).
-						Str("block-time", r.Block.Time.Format(time.RFC3339Nano)).
-						Str("block-duration", blockDuration.String()).
-						Int("broadcast-txs", sent).
-						Int("committed-txs", len(r.Block.Txs)).
-						Msg("block committed")
-
-					targetHeight++
+					log.Printf("taks %d completed, took %s", i, time.Since(started))
 				}
 
 				started := time.Now()
