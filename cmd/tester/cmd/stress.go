@@ -114,7 +114,7 @@ func StressTestCmd() *cobra.Command {
 			}
 			log.Debug().Msg("finished to parse arguments and accounts")
 
-			log.Debug().Msg("prepare private keys")
+			log.Debug().Msg("prepare private keys (concurrent)")
 			var (
 				mnemonics []string
 				addresses []string
@@ -176,7 +176,6 @@ func StressTestCmd() *cobra.Command {
 			for no, scenario := range scenarios {
 				log.Info().Msgf("starting simulation #%d, rounds = %d, tps = %d", no, scenario.Rounds, scenario.NumTps)
 
-				client.GRPC.GetEvmParams(ctx)
 				var accountSec int
 				gp := big.NewInt(cfg.Custom.GasPrice)
 
@@ -186,6 +185,7 @@ func StressTestCmd() *cobra.Command {
 					log.Info().Msgf("round %d::signing loop (concurrent)", i)
 					started := time.Now()
 					wg := sync.WaitGroup{}
+					var mu sync.Mutex
 					for j := 0; j < scenario.NumTps; j++ {
 						wg.Add(1)
 						go func(w *sync.WaitGroup, accSeq uint64, ecdsaPk *ecdsa.PrivateKey, idx int) {
@@ -196,7 +196,10 @@ func StressTestCmd() *cobra.Command {
 								log.Err(err).Msg("sign tx")
 								return
 							}
-							signedEthTxs[idx] = signedTx
+
+							mu.Lock()
+							signedEthTxs = append(signedEthTxs, signedTx)
+							mu.Unlock()
 							ethTxBytes, err := rlp.EncodeToBytes(signedTx)
 							if err != nil {
 								log.Err(err).Msg("encode to bytes")
