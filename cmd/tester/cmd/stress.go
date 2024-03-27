@@ -284,25 +284,19 @@ func StressTestCmd() *cobra.Command {
 				// check tx is successful by querying receipt
 				total := len(signedEthTxs)
 				var succeeded, failed int
-				var mu sync.Mutex
-				wg = sync.WaitGroup{}
 
 				for _, tx := range signedEthTxs {
-					wg.Add(1)
-					go func(wg *sync.WaitGroup, tx *gethtypes.Transaction) {
-						defer wg.Done()
-						if _, err := ethClient.TransactionReceipt(ctx, tx.Hash()); err != nil {
-							mu.Lock()
-							failed++
-							mu.Unlock()
-							return
-						}
-						mu.Lock()
-						succeeded++
-						mu.Unlock()
-					}(&wg, tx)
+					if tx == nil {
+						log.Debug().Msg("tx is nil")
+						continue
+					}
+					if _, err := ethClient.TransactionReceipt(ctx, tx.Hash()); err != nil {
+						failed++
+						log.Err(err).Msg("tx failed")
+						continue
+					}
+					succeeded++
 				}
-				wg.Wait()
 				log.Info().Msgf("total txs: %d, succeeded: %d, failed: %d", total, succeeded, failed)
 				time.Sleep(5 * time.Second)
 			}
