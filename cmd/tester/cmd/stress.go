@@ -117,19 +117,13 @@ func StressTestCmd() *cobra.Command {
 			accounts = accounts[:maxAccountCount]
 
 			log.Debug().Msg("prepare private keys (concurrent)")
-			var (
-				mnemonics []string
-				addresses []string
-			)
 			ecdsaPrivateKeys := make([]*ecdsa.PrivateKey, len(accounts))
 			wg := sync.WaitGroup{}
 			for i, account := range accounts {
-				mnemonics = append(mnemonics, account.Mnemonic)
-				addresses = append(addresses, account.Address)
-
 				wg.Add(1)
 				go func(wg *sync.WaitGroup, mnemonic string, idx int) {
 					defer wg.Done()
+					log.Debug().Msgf("deriving private key for account %d, mnemonic: %s", idx, mnemonic)
 					bz, err := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, etherminttypes.BIP44HDPath)
 					if err != nil {
 						panic(err)
