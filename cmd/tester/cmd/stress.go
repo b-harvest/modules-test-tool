@@ -134,7 +134,8 @@ func StressTestCmd() *cobra.Command {
 				}(i, account)
 			}
 			wg.Wait()
-			log.Debug().Msg("done getting account sequences")
+			log.Debug().Msg("done getting account sequences, sleep 10 sec to make node stable")
+			time.Sleep(10 * time.Second)
 
 			for no, scenario := range scenarios {
 				log.Info().Msgf("starting simulation #%d, rounds = %d, tps = %d", no, scenario.Rounds, scenario.NumTps)
