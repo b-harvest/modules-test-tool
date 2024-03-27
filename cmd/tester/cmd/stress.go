@@ -149,10 +149,10 @@ func StressTestCmd() *cobra.Command {
 				{round, numTps},
 			}
 
-			accSeqs := make([]uint64, maxAccountCount)
+			accSeqs := make([]uint64, len(accounts))
 			wg = sync.WaitGroup{}
 			log.Debug().Msgf("getting account sequences (%d)", len(accounts))
-			for i, account := range accounts[:maxAccountCount] {
+			for i, account := range accounts {
 				wg.Add(1)
 				go func(i int, account RawValidator) {
 					defer wg.Done()
