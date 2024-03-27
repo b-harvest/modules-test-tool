@@ -145,7 +145,6 @@ func StressTestCmd() *cobra.Command {
 					return fmt.Errorf("get next account: %w", err)
 				}
 				for i := 0; i < scenario.Rounds; i++ {
-
 					var txs [][]byte
 					log.Info().Msgf("round %d::signing loop", i)
 					for j := 0; j < scenario.NumTps; j++ {
@@ -184,10 +183,6 @@ func StressTestCmd() *cobra.Command {
 							return fmt.Errorf("sign tx: %w", err)
 						}
 
-						if err := d.Next(); err != nil {
-							return fmt.Errorf("get next account: %w", err)
-						}
-
 						txs = append(txs, txBytes)
 					}
 
@@ -204,20 +199,7 @@ func StressTestCmd() *cobra.Command {
 							}
 
 							if resp.TxResponse.Code != 0 {
-								if resp.TxResponse.Code == 0x14 {
-									log.Warn().Msg("mempool is full, stopping")
-									return
-								}
-								if resp.TxResponse.Code == 0x5 {
-									log.Printf("Insufficient funds!!! %s", d.addr)
-									return
-								}
-								if resp.TxResponse.Code == 0x13 || resp.TxResponse.Code == 0x20 {
-									log.Warn().Str("addr", d.Addr()).Uint64("seq", d.AccSeq()).Msgf("received %#v, using next account", resp.TxResponse)
-								} else {
-									log.Warn().Msg("panic")
-									panic(fmt.Sprintf("%#v, %s\n", resp.TxResponse, d.addr[d.i]))
-								}
+								log.Warn().Msgf("tx failed: %#v", resp.TxResponse.Code)
 							}
 						}(&wg, txByte)
 					}
@@ -225,8 +207,10 @@ func StressTestCmd() *cobra.Command {
 					timeSpent := time.Since(started)
 					log.Debug().Msgf("took %s broadcasting %d txs", timeSpent, len(txs))
 					// sleep 1sec - timeSpent
-					log.Debug().Msgf("sleeping for %s", time.Second-timeSpent)
-					time.Sleep(time.Second - timeSpent)
+					if timeSpent < time.Second {
+						log.Debug().Msgf("sleeping for %s", time.Second-timeSpent)
+						time.Sleep(time.Second - timeSpent)
+					}
 				}
 
 				started := time.Now()
