@@ -117,10 +117,7 @@ func StressTestCmd() *cobra.Command {
 				{round, numTps},
 			}
 
-			var (
-				accSeqs    []uint64
-				accountSec int
-			)
+			accSeqs := make([]uint64, maxAccountCount)
 			var wg sync.WaitGroup
 			log.Debug().Msgf("getting account sequences (%d)", len(accounts))
 			for i, account := range accounts[:maxAccountCount] {
@@ -143,6 +140,7 @@ func StressTestCmd() *cobra.Command {
 				log.Info().Msgf("starting simulation #%d, rounds = %d, tps = %d", no, scenario.Rounds, scenario.NumTps)
 
 				d := NewAccountDispenser(client, mnemonics, addresses)
+				var accountSec int
 				if err = d.Next(); err != nil {
 					return fmt.Errorf("get next account: %w", err)
 				}
