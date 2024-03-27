@@ -171,7 +171,7 @@ func StressTestCmd() *cobra.Command {
 			for no, scenario := range scenarios {
 				log.Info().Msgf("starting simulation #%d, rounds = %d, tps = %d", no, scenario.Rounds, scenario.NumTps)
 
-				var accountSec int
+				var accPointer int
 				gp := big.NewInt(cfg.Custom.GasPrice)
 
 				var signedEthTxs []*gethtypes.Transaction
@@ -181,7 +181,10 @@ func StressTestCmd() *cobra.Command {
 					started := time.Now()
 					wg := sync.WaitGroup{}
 					var mu sync.Mutex
+					accPointerMap := make(map[int]int)
 					for j := 0; j < scenario.NumTps; j++ {
+						// remember j's account pointer
+						accPointerMap[j] = accPointer
 						wg.Add(1)
 						go func(w *sync.WaitGroup, accSeq uint64, ecdsaPk *ecdsa.PrivateKey, idx int) {
 							defer w.Done()
@@ -225,9 +228,9 @@ func StressTestCmd() *cobra.Command {
 							}
 
 							txs[idx] = txBytes
-						}(&wg, accSeqs[accountSec], ecdsaPrivateKeys[accountSec], j)
-						accSeqs[accountSec]++
-						accountSec = (accountSec + 1) % maxAccountCount
+						}(&wg, accSeqs[accPointer], ecdsaPrivateKeys[accPointer], j)
+						// increase pointer
+						accPointer = (accPointer + 1) % maxAccountCount
 					}
 					wg.Wait()
 					log.Debug().Msgf("finished took %s signing %d txs", time.Since(started), len(txs))
@@ -235,9 +238,9 @@ func StressTestCmd() *cobra.Command {
 					log.Info().Msgf("round %d::sending loop (go-routines)", i)
 					started = time.Now()
 					wg = sync.WaitGroup{}
-					for _, txByte := range txs {
+					for j, txByte := range txs {
 						wg.Add(1)
-						go func(w *sync.WaitGroup, tx []byte) {
+						go func(w *sync.WaitGroup, accIdx int, tx []byte) {
 							defer w.Done()
 							resp, err := client.GRPC.BroadcastTx(ctx, tx)
 							if err != nil {
@@ -246,8 +249,13 @@ func StressTestCmd() *cobra.Command {
 
 							if resp.TxResponse.Code != 0 {
 								log.Warn().Msgf("tx failed, reason code: %d", resp.TxResponse.Code)
+							} else {
+								mu.Lock()
+								// increment account sequence when tx is successful
+								accSeqs[accPointerMap[accIdx]]++
+								mu.Unlock()
 							}
-						}(&wg, txByte)
+						}(&wg, j, txByte)
 					}
 					wg.Wait()
 					timeSpent := time.Since(started)
