@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"os"
@@ -9,6 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/evmos/ethermint/crypto/hd"
+	etherminttypes "github.com/evmos/ethermint/types"
 	"github.com/ghodss/yaml"
 
 	"github.com/rs/zerolog/log"
@@ -60,6 +66,11 @@ func StressTestCmd() *cobra.Command {
 			}
 			defer client.Stop() // nolint: errcheck
 
+			ethClient, err := ethclient.Dial(cfg.ETHRPC.Address)
+			if err != nil {
+				return err
+			}
+
 			calldata, err := hexutil.Decode(args[0])
 			if err != nil {
 				return fmt.Errorf("failed to decode ethereum tx hex bytes: %w", err)
@@ -98,27 +109,46 @@ func StressTestCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to unmarshal accounts: %w", err)
 			}
+			if maxAccountCount > len(accounts) {
+				return fmt.Errorf("maxAccountCount is hgiher than accounts total count. \nCheckup your account json file: %w", err)
+			}
 			log.Debug().Msg("finished to parse arguments and accounts")
 
+			log.Debug().Msg("prepare private keys")
 			var (
 				mnemonics []string
 				addresses []string
 			)
-			for _, account := range accounts {
+			ecdsaPrivateKeys := make([]*ecdsa.PrivateKey, len(accounts))
+			wg := sync.WaitGroup{}
+			for i, account := range accounts {
 				mnemonics = append(mnemonics, account.Mnemonic)
 				addresses = append(addresses, account.Address)
-			}
 
-			if maxAccountCount > len(accounts) {
-				return fmt.Errorf("maxAccountCount is hgiher than accounts total count. \nCheckup your account json file: %w", err)
+				wg.Add(1)
+				go func(wg *sync.WaitGroup, mnemonic string, idx int) {
+					defer wg.Done()
+					bz, err := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, etherminttypes.BIP44HDPath)
+					if err != nil {
+						panic(err)
+					}
+					privKey := hd.EthSecp256k1.Generate()(bz)
+					ecdsaPrivKey, err := crypto.ToECDSA(privKey.Bytes())
+					if err != nil {
+						panic(err)
+					}
+					ecdsaPrivateKeys[idx] = ecdsaPrivKey
+				}(&wg, account.Mnemonic, i)
 			}
+			wg.Wait()
+			log.Debug().Msg("finished to prepare private keys")
 
 			scenarios := []Scenario{
 				{round, numTps},
 			}
 
 			accSeqs := make([]uint64, maxAccountCount)
-			var wg sync.WaitGroup
+			wg = sync.WaitGroup{}
 			log.Debug().Msgf("getting account sequences (%d)", len(accounts))
 			for i, account := range accounts[:maxAccountCount] {
 				wg.Add(1)
@@ -137,59 +167,76 @@ func StressTestCmd() *cobra.Command {
 			log.Debug().Msg("done getting account sequences, sleep 10 sec to make node stable")
 			time.Sleep(10 * time.Second)
 
+			evmParams, err := client.GRPC.GetEvmParams(context.Background())
+			if err != nil {
+				return err
+			}
+			evmDenom := evmParams.EvmDenom
+
 			for no, scenario := range scenarios {
 				log.Info().Msgf("starting simulation #%d, rounds = %d, tps = %d", no, scenario.Rounds, scenario.NumTps)
 
-				d := NewAccountDispenser(client, mnemonics, addresses)
+				client.GRPC.GetEvmParams(ctx)
 				var accountSec int
-				if err = d.Next(); err != nil {
-					return fmt.Errorf("get next account: %w", err)
-				}
+				gp := big.NewInt(cfg.Custom.GasPrice)
+
+				var signedEthTxs []*gethtypes.Transaction
 				for i := 0; i < scenario.Rounds; i++ {
-					var txs [][]byte
-					log.Info().Msgf("round %d::signing loop", i)
-					for j := 0; j < scenario.NumTps; j++ {
-						//accSeq := d.IncAccSeq()
-						nowGas := big.NewInt(cfg.Custom.GasPrice)
-						unsignedTx := gethtypes.NewTransaction(accSeqs[accountSec], contractAddr, amount, gasLimit, nowGas, calldata)
-						signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), d.ecdsaPrivKey)
-						if err != nil {
-							return err
-						}
-						accSeqs[accountSec]++
-						accountSec++
-						accountSec %= maxAccountCount
-
-						ethTxBytes, err := rlp.EncodeToBytes(signedTx)
-						if err != nil {
-							return err
-						}
-
-						msg := &evmtypes.MsgEthereumTx{}
-						if err := msg.UnmarshalBinary(ethTxBytes); err != nil {
-							return err
-						}
-
-						if err := msg.ValidateBasic(); err != nil {
-							return err
-						}
-
-						tx, err := msg.BuildTx(txConfig.NewTxBuilder(), d.evmDenom)
-						if err != nil {
-							return err
-						}
-
-						txBytes, err := txConfig.TxEncoder()(tx)
-						if err != nil {
-							return fmt.Errorf("sign tx: %w", err)
-						}
-
-						txs = append(txs, txBytes)
-					}
-
+					txs := make([][]byte, scenario.NumTps)
+					log.Info().Msgf("round %d::signing loop (concurrent)", i)
 					started := time.Now()
-					log.Info().Msgf("round %d::sending loop (go-routines)", i)
 					wg := sync.WaitGroup{}
+					for j := 0; j < scenario.NumTps; j++ {
+						wg.Add(1)
+						go func(w *sync.WaitGroup, accSeq uint64, ecdsaPk *ecdsa.PrivateKey, idx int) {
+							defer w.Done()
+							unsignedTx := gethtypes.NewTransaction(accSeq, contractAddr, amount, gasLimit, gp, calldata)
+							signedTx, err := gethtypes.SignTx(unsignedTx, gethtypes.NewEIP155Signer(big.NewInt(cfg.Custom.ChainID)), ecdsaPk)
+							if err != nil {
+								log.Err(err).Msg("sign tx")
+								return
+							}
+							signedEthTxs[idx] = signedTx
+							ethTxBytes, err := rlp.EncodeToBytes(signedTx)
+							if err != nil {
+								log.Err(err).Msg("encode to bytes")
+								return
+							}
+
+							msg := &evmtypes.MsgEthereumTx{}
+							if err := msg.UnmarshalBinary(ethTxBytes); err != nil {
+								log.Err(err).Msg("unmarshal binary")
+								return
+							}
+
+							if err := msg.ValidateBasic(); err != nil {
+								log.Err(err).Msg("validate basic")
+								return
+							}
+
+							tx, err := msg.BuildTx(txConfig.NewTxBuilder(), evmDenom)
+							if err != nil {
+								log.Err(err).Msg("build tx")
+								return
+							}
+
+							txBytes, err := txConfig.TxEncoder()(tx)
+							if err != nil {
+								log.Err(err).Msg("tx encoder")
+								return
+							}
+
+							txs[idx] = txBytes
+						}(&wg, accSeqs[accountSec], ecdsaPrivateKeys[accountSec], j)
+						accSeqs[accountSec]++
+						accountSec = (accountSec + 1) % maxAccountCount
+					}
+					wg.Wait()
+					log.Debug().Msgf("finished signing loop, took %s", time.Since(started))
+
+					log.Info().Msgf("round %d::sending loop (go-routines)", i)
+					started = time.Now()
+					wg = sync.WaitGroup{}
 					for _, txByte := range txs {
 						wg.Add(1)
 						go func(w *sync.WaitGroup, tx []byte) {
@@ -227,7 +274,31 @@ func StressTestCmd() *cobra.Command {
 					time.Sleep(5 * time.Second)
 				}
 				log.Debug().Str("elapsed", time.Since(started).String()).Msg("done cooling down")
-				time.Sleep(time.Minute)
+
+				// check tx is successful by querying receipt
+				total := len(signedEthTxs)
+				var succeeded, failed int
+				var mu sync.Mutex
+				wg = sync.WaitGroup{}
+
+				for _, tx := range signedEthTxs {
+					wg.Add(1)
+					go func(wg *sync.WaitGroup, tx *gethtypes.Transaction) {
+						defer wg.Done()
+						if _, err := ethClient.TransactionReceipt(ctx, tx.Hash()); err != nil {
+							mu.Lock()
+							failed++
+							mu.Unlock()
+							return
+						}
+						mu.Lock()
+						succeeded++
+						mu.Unlock()
+					}(&wg, tx)
+				}
+				wg.Wait()
+				log.Info().Msgf("total txs: %d, succeeded: %d, failed: %d", total, succeeded, failed)
+				time.Sleep(5 * time.Second)
 			}
 			return nil
 		},
