@@ -237,7 +237,7 @@ func StressTestCmd() *cobra.Command {
 						accountSec = (accountSec + 1) % maxAccountCount
 					}
 					wg.Wait()
-					log.Debug().Msgf("finished signing loop, took %s", time.Since(started))
+					log.Debug().Msgf("finished took %s signing %d txs", time.Since(started), len(txs))
 
 					log.Info().Msgf("round %d::sending loop (go-routines)", i)
 					started = time.Now()
