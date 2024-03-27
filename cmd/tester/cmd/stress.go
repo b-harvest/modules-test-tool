@@ -113,6 +113,8 @@ func StressTestCmd() *cobra.Command {
 				return fmt.Errorf("maxAccountCount is hgiher than accounts total count. \nCheckup your account json file: %w", err)
 			}
 			log.Debug().Msg("finished to parse arguments and accounts")
+			// cut accounts to maxAccountCount
+			accounts = accounts[:maxAccountCount]
 
 			log.Debug().Msg("prepare private keys (concurrent)")
 			var (
