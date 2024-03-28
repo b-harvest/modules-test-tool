@@ -305,14 +305,14 @@ func StressTestCmd() *cobra.Command {
 					log.Warn().Msgf("invalid nonce count for %s: %d", addr, count)
 				}
 
+				log.Debug().Msg("checking tx receipts... (it takes time)")
 				for _, tx := range signedEthTxs {
 					if tx == nil {
-						log.Debug().Msg("tx is nil")
+						failed++
 						continue
 					}
 					if _, err := ethClient.TransactionReceipt(ctx, tx.Hash()); err != nil {
 						failed++
-						log.Err(err).Msg("tx failed")
 						continue
 					}
 					succeeded++
