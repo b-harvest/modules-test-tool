@@ -249,9 +249,18 @@ func StressTestCmd() *cobra.Command {
 
 							if resp.TxResponse.Code != 0 {
 								log.Warn().Msgf("tx failed, reason code: %d", resp.TxResponse.Code)
+							} else if resp.TxResponse.Code == 3 {
+								// handle invalid nonce
+								// query nonce
+								acc, err := client.GRPC.GetBaseAccountInfo(ctx, accounts[accIdx].Address)
+								if err != nil {
+									log.Err(err).Msg("get base account info")
+									return
+								}
+								// update account sequence
+								accSeqs[accPointerMap[accIdx]] = acc.GetSequence()
 							} else {
-								mu.Lock()
-								// increment account sequence when tx is successful
+								mu.Lock() // increment account sequence when tx is successful
 								accSeqs[accPointerMap[accIdx]]++
 								mu.Unlock()
 							}
