@@ -174,7 +174,7 @@ func StressTestCmd() *cobra.Command {
 				var accPointer int
 				gp := big.NewInt(cfg.Custom.GasPrice)
 
-				invalidNonceCounter := 0
+				invalidNonceCounter := make(map[string]int)
 				var signedEthTxs []*gethtypes.Transaction
 				for i := 0; i < scenario.Rounds; i++ {
 					txs := make([][]byte, scenario.NumTps)
@@ -253,15 +253,17 @@ func StressTestCmd() *cobra.Command {
 							} else if resp.TxResponse.Code == 3 {
 								// handle invalid nonce
 								// query nonce
-								acc, err := client.GRPC.GetBaseAccountInfo(ctx, accounts[accIdx].Address)
+								idx := accPointerMap[accIdx]
+								account := accounts[idx]
+								acc, err := client.GRPC.GetBaseAccountInfo(ctx, account.Address)
 								if err != nil {
 									log.Err(err).Msg("get base account info")
 									return
 								}
 								// update account sequence
-								accSeqs[accPointerMap[accIdx]] = acc.GetSequence()
 								mu.Lock()
-								invalidNonceCounter++
+								accSeqs[idx] = acc.GetSequence()
+								invalidNonceCounter[account.Address]++
 								mu.Unlock()
 							} else {
 								mu.Lock() // increment account sequence when tx is successful
@@ -298,6 +300,11 @@ func StressTestCmd() *cobra.Command {
 				total := len(signedEthTxs)
 				var succeeded, failed int
 
+				// print invalid nonce counter
+				for addr, count := range invalidNonceCounter {
+					log.Warn().Msgf("invalid nonce count for %s: %d", addr, count)
+				}
+
 				for _, tx := range signedEthTxs {
 					if tx == nil {
 						log.Debug().Msg("tx is nil")
@@ -310,7 +317,7 @@ func StressTestCmd() *cobra.Command {
 					}
 					succeeded++
 				}
-				log.Info().Msgf("total txs: %d, succeeded: %d, failed: %d / invalid nonce counter: %d", total, succeeded, failed, invalidNonceCounter)
+				log.Info().Msgf("total txs: %d, succeeded: %d, failed: %d", total, succeeded, failed)
 				time.Sleep(5 * time.Second)
 			}
 			return nil
