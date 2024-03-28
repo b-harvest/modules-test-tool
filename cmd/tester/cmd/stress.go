@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 	"strconv"
@@ -306,17 +307,52 @@ func StressTestCmd() *cobra.Command {
 				}
 
 				log.Debug().Msg("checking tx receipts... (it takes time)")
-				for _, tx := range signedEthTxs {
-					if tx == nil {
-						failed++
-						continue
+				wg = sync.WaitGroup{}
+				maxGoroutines := 100   // 동시에 실행할 최대 고루틴 수
+				txsPerGoroutine := 100 // 각 고루틴이 처리할 트랜잭션 수
+				txLen := len(signedEthTxs)
+				goroutines := int(math.Ceil(float64(txLen) / float64(txsPerGoroutine)))
+
+				semaphore := make(chan struct{}, maxGoroutines) // 고루틴 수를 제한하기 위한 세마포어
+				results := make(chan bool, txLen)               // 결과를 저장할 채널
+
+				for i := 0; i < goroutines; i++ {
+					semaphore <- struct{}{} // 세마포어에 자리를 차지하며, 자리가 없으면 대기
+					wg.Add(1)
+					start := i * txsPerGoroutine
+					end := start + txsPerGoroutine
+					if end > txLen {
+						end = txLen
 					}
-					if _, err := ethClient.TransactionReceipt(ctx, tx.Hash()); err != nil {
-						failed++
-						continue
-					}
-					succeeded++
+					go func(txs []*gethtypes.Transaction) {
+						defer wg.Done()
+						for _, tx := range txs {
+							if tx == nil {
+								results <- false
+								continue
+							}
+							if _, err := ethClient.TransactionReceipt(ctx, tx.Hash()); err != nil {
+								results <- false
+								continue
+							}
+							results <- true
+						}
+						<-semaphore // 작업 완료 후 세마포어에서 자리를 반환
+					}(signedEthTxs[start:end])
 				}
+				go func() {
+					wg.Wait()
+					close(results)
+				}()
+
+				for result := range results {
+					if result {
+						succeeded++
+					} else {
+						failed++
+					}
+				}
+
 				log.Info().Msgf("total txs: %d, succeeded: %d, failed: %d", total, succeeded, failed)
 				time.Sleep(5 * time.Second)
 			}
