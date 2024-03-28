@@ -251,7 +251,8 @@ func StressTestCmd() *cobra.Command {
 
 							if resp.TxResponse.Code != 0 {
 								log.Warn().Msgf("tx failed, reason code: %d", resp.TxResponse.Code)
-							} else if resp.TxResponse.Code == 3 {
+							}
+							if resp.TxResponse.Code == 3 {
 								// handle invalid nonce
 								// query nonce
 								idx := accPointerMap[accIdx]
@@ -266,7 +267,7 @@ func StressTestCmd() *cobra.Command {
 								accSeqs[idx] = acc.GetSequence()
 								invalidNonceCounter[account.Address]++
 								mu.Unlock()
-							} else {
+							} else if resp.TxResponse.Code == 0 {
 								mu.Lock() // increment account sequence when tx is successful
 								accSeqs[accPointerMap[accIdx]]++
 								mu.Unlock()
