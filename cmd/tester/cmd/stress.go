@@ -174,6 +174,7 @@ func StressTestCmd() *cobra.Command {
 				var accPointer int
 				gp := big.NewInt(cfg.Custom.GasPrice)
 
+				invalidNonceCounter := 0
 				var signedEthTxs []*gethtypes.Transaction
 				for i := 0; i < scenario.Rounds; i++ {
 					txs := make([][]byte, scenario.NumTps)
@@ -259,6 +260,9 @@ func StressTestCmd() *cobra.Command {
 								}
 								// update account sequence
 								accSeqs[accPointerMap[accIdx]] = acc.GetSequence()
+								mu.Lock()
+								invalidNonceCounter++
+								mu.Unlock()
 							} else {
 								mu.Lock() // increment account sequence when tx is successful
 								accSeqs[accPointerMap[accIdx]]++
@@ -306,7 +310,7 @@ func StressTestCmd() *cobra.Command {
 					}
 					succeeded++
 				}
-				log.Info().Msgf("total txs: %d, succeeded: %d, failed: %d", total, succeeded, failed)
+				log.Info().Msgf("total txs: %d, succeeded: %d, failed: %d / invalid nonce counter: %d", total, succeeded, failed, invalidNonceCounter)
 				time.Sleep(5 * time.Second)
 			}
 			return nil
